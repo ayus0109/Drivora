@@ -61,7 +61,6 @@ const Dashboard = () => {
   // Mobile States
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
-  const [isFabOpen, setIsFabOpen] = useState(false);
 
   // Modal States
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
@@ -791,11 +790,12 @@ const Dashboard = () => {
 
         {/* MAIN BROWSER CONTENT */}
         <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 pb-32">
-          {/* Drag & Drop Upload Zone */}
+          {/* Unified Center Action Panel (Upload File & New Folder) */}
           <div className="mb-5 sm:mb-6">
             <UploadDropzone
               onUpload={handleFileUpload}
               uploadStatus={uploadStatus}
+              onCreateFolder={() => setIsCreateFolderOpen(true)}
             />
           </div>
 
@@ -915,46 +915,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* MOBILE FLOATING ACTION BUTTON (FAB) */}
-      <div className="md:hidden fixed bottom-6 right-5 z-40">
-        {isFabOpen && (
-          <div className="flex flex-col gap-2.5 mb-3 animate-in fade-in slide-in-from-bottom-3 duration-150">
-            <button
-              onClick={() => {
-                setIsFabOpen(false);
-                setIsCreateFolderOpen(true);
-              }}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white text-gray-800 text-xs font-bold shadow-xl border border-gray-200 touch-active"
-            >
-              <FolderPlus className="h-4 w-4 text-amber-500" />
-              <span>New Folder</span>
-            </button>
 
-            <button
-              onClick={() => {
-                setIsFabOpen(false);
-                uploadInputRef.current?.click();
-              }}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-blue-600 text-white text-xs font-bold shadow-xl touch-active"
-            >
-              <UploadCloud className="h-4 w-4" />
-              <span>Upload File</span>
-            </button>
-          </div>
-        )}
-
-        <button
-          onClick={() => setIsFabOpen(!isFabOpen)}
-          className="flex h-13 w-13 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl shadow-blue-600/30 active:scale-95 transition-transform"
-          aria-label="Create or upload"
-        >
-          <Plus
-            className={`h-6 w-6 stroke-[2.5] transition-transform duration-200 ${
-              isFabOpen ? 'rotate-45' : ''
-            }`}
-          />
-        </button>
-      </div>
 
       {/* MODALS */}
       <CreateFolderModal

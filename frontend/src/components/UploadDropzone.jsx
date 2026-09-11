@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { UploadCloud, FolderPlus, CheckCircle2, AlertCircle } from 'lucide-react';
 
-const UploadDropzone = ({ onUpload, uploadStatus }) => {
+const UploadDropzone = ({ onUpload, uploadStatus, onCreateFolder }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -42,35 +42,58 @@ const UploadDropzone = ({ onUpload, uploadStatus }) => {
         className="hidden"
       />
 
-      {/* Upload Dropzone Banner */}
+      {/* Center Action Panel: Unified 1-Time Upload File & New Folder */}
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-        className={`group relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-4 sm:p-6 text-center cursor-pointer transition-all touch-active ${
+        className={`rounded-2xl border transition-all p-3 sm:p-3.5 ${
           isDragOver
             ? 'border-blue-500 bg-blue-50/80 scale-[1.01]'
-            : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-gray-50/50'
+            : 'border-gray-200/90 bg-white shadow-2xs'
         }`}
       >
-        <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600 group-hover:scale-110 transition-transform mb-2 sm:mb-3">
-          <UploadCloud className="h-5 w-5 sm:h-6 sm:w-6" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Action Buttons: 1 Clean Place in the Center */}
+          <div className="flex items-center gap-2.5 flex-1">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 sm:py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold text-sm shadow-md shadow-blue-600/20 transition-all touch-active"
+            >
+              <UploadCloud className="h-4.5 w-4.5 stroke-[2.2]" />
+              <span>Upload File</span>
+            </button>
+
+            {onCreateFolder && (
+              <button
+                type="button"
+                onClick={onCreateFolder}
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 active:scale-[0.98] text-gray-700 font-bold text-sm shadow-2xs transition-all touch-active"
+              >
+                <FolderPlus className="h-4.5 w-4.5 text-gray-500" />
+                <span>New Folder</span>
+              </button>
+            )}
+          </div>
+
+          {/* Drag & Drop Hint for Desktop */}
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="cursor-pointer text-center sm:text-right text-xs text-gray-400 font-medium hover:text-blue-600 transition-colors py-0.5"
+          >
+            {isDragOver ? (
+              <span className="text-blue-600 font-bold">Release to drop & upload files</span>
+            ) : (
+              <span className="hidden sm:inline">💡 Drag & drop files anywhere here (up to 100 MB)</span>
+            )}
+          </div>
         </div>
-        <p className="text-xs sm:text-sm font-semibold text-gray-800">
-          <span className="text-blue-600 underline decoration-blue-300 underline-offset-2">
-            Tap to upload
-          </span>{' '}
-          or drag files here
-        </p>
-        <p className="text-[11px] sm:text-xs text-gray-400 mt-1">
-          Any file up to 100 MB (PDF, Images, Video, Docs, Code)
-        </p>
       </div>
 
       {/* Floating Progress Bar when Uploading */}
       {uploadStatus.isUploading && (
-        <div className="fixed bottom-20 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-50 sm:w-96 rounded-2xl bg-white p-4 shadow-2xl border border-gray-100 animate-in slide-in-from-bottom-5">
+        <div className="fixed bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-50 sm:w-96 rounded-2xl bg-white p-4 shadow-2xl border border-gray-100 animate-in slide-in-from-bottom-5">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-gray-800 truncate max-w-[200px]">
               Uploading {uploadStatus.fileName}...
@@ -92,7 +115,7 @@ const UploadDropzone = ({ onUpload, uploadStatus }) => {
       {/* Toast Alert for upload errors or successes */}
       {uploadStatus.message && (
         <div
-          className={`fixed bottom-20 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-50 flex items-start gap-3 sm:w-96 rounded-2xl p-4 shadow-xl border animate-in slide-in-from-bottom-5 ${
+          className={`fixed bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-50 flex items-start gap-3 sm:w-96 rounded-2xl p-4 shadow-xl border animate-in slide-in-from-bottom-5 ${
             uploadStatus.isError
               ? 'bg-red-50 border-red-200 text-red-800'
               : 'bg-green-50 border-green-200 text-green-800'
