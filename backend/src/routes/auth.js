@@ -346,8 +346,14 @@ router.post('/login', async (req, res, next) => {
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
+      const isGoogle =
+        !!user.googleId ||
+        user.authProvider === 'google' ||
+        user.email.endsWith('@gmail.com');
+
       return res.status(401).json({
         success: false,
+        isGoogleAccount: isGoogle,
         message: 'Invalid email or password.',
       });
     }

@@ -20,6 +20,7 @@ const Login = () => {
   const [hasUserTyped, setHasUserTyped] = useState(false);
   const [privacyNotice, setPrivacyNotice] = useState('');
   const [error, setError] = useState('');
+  const [isGoogleAccountError, setIsGoogleAccountError] = useState(false);
   const [successBanner, setSuccessBanner] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
@@ -132,6 +133,7 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setIsGoogleAccountError(false);
     setPrivacyNotice('');
     setSuccessBanner('');
 
@@ -146,6 +148,11 @@ const Login = () => {
       navigate('/');
     } catch (err) {
       console.error('Login failed:', err);
+      const isGoogle =
+        err.response?.data?.isGoogleAccount ||
+        email.trim().toLowerCase().includes('gmail.com');
+      setIsGoogleAccountError(!!isGoogle);
+
       const message =
         err.response?.data?.message ||
         'Unable to log in. Please check your credentials.';
@@ -251,9 +258,36 @@ const Login = () => {
         </div>
 
         {error && (
-          <div className="flex items-start gap-3 rounded-xl bg-red-50 p-3.5 text-xs sm:text-sm text-red-700 border border-red-200/80 animate-in fade-in">
-            <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-500" />
-            <span>{error}</span>
+          <div className="rounded-xl bg-red-50 p-3.5 text-xs sm:text-sm text-red-700 border border-red-200/80 animate-in fade-in space-y-2.5">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-500 mt-0.5" />
+              <div className="leading-snug flex-1">
+                <span className="font-semibold">{error}</span>
+                {isGoogleAccountError && (
+                  <p className="mt-1 text-xs text-red-600/90 font-medium">
+                    This account is linked with Google. You can sign in with 1-click using Google, or set a new password.
+                  </p>
+                )}
+              </div>
+            </div>
+            {isGoogleAccountError && (
+              <div className="pt-1 flex items-center gap-2 pl-7">
+                <button
+                  type="button"
+                  onClick={() => setIsGoogleModalOpen(true)}
+                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-all active:scale-[0.98]"
+                >
+                  1-Click Google Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsForgotModalOpen(true)}
+                  className="px-3 py-1.5 rounded-lg border border-red-300 bg-white hover:bg-red-50 text-red-700 font-bold text-xs transition-colors"
+                >
+                  Reset Password
+                </button>
+              </div>
+            )}
           </div>
         )}
 
