@@ -1,7 +1,19 @@
-import React, { useState } from 'react';
-import { X, User, ArrowRight, ShieldCheck, CheckCircle2, ChevronRight, AlertCircle, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import {
+  X,
+  User,
+  ArrowRight,
+  ShieldCheck,
+  ChevronRight,
+  ChevronDown,
+  AlertCircle,
+  Loader2,
+  Eye,
+  EyeOff,
+  Trash2,
+} from 'lucide-react';
 
-const GoogleLogo = ({ className = "h-5 w-5" }) => (
+const GoogleLogo = ({ className = 'h-5 w-5' }) => (
   <svg className={className} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
     <path
       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -22,115 +34,188 @@ const GoogleLogo = ({ className = "h-5 w-5" }) => (
   </svg>
 );
 
+const STORAGE_KEY = 'drivora_device_accounts';
+
 const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
-  const [isUsingAnother, setIsUsingAnother] = useState(false);
-  const [customEmail, setCustomEmail] = useState('');
-  const [customName, setCustomName] = useState('');
+  // Device-isolated accounts: read exclusively from this browser/device's localStorage
+  const [deviceAccounts, setDeviceAccounts] = useState([]);
+  const [view, setView] = useState('email'); // 'picker' | 'email' | 'password'
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedEmail, setSelectedEmail] = useState(null);
 
-  if (!isOpen) return null;
-
-  // Preset known profiles (Primary user and demo accounts for convenient 1-tap testing)
-  const defaultAccounts = [
-    {
-      email: 'ayushphalak5@gmail.com',
-      name: 'Ayush Phalak',
-      initials: 'AP',
-      color: 'bg-emerald-600',
-      badge: 'Current Account',
-    },
-    {
-      email: 'ayush@test.com',
-      name: 'Ayush (Cloud User)',
-      initials: 'A',
-      color: 'bg-blue-600',
-      badge: 'Linked Drive',
-    },
-  ];
-
-  const handleSelectAccount = async (acc) => {
-    setError('');
-    setSelectedEmail(acc.email);
-    setIsSubmitting(true);
-
-    try {
-      await onGoogleLogin({
-        email: acc.email,
-        name: acc.name,
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(
-          acc.name
-        )}&background=2563eb&color=fff&bold=true`,
-        googleId: `google_oauth_${acc.email.replace(/[^a-zA-Z0-9]/g, '_')}`,
-      });
-      onClose();
-    } catch (err) {
-      console.error('Google sign-in error:', err);
-      setError(
-        err.response?.data?.message ||
-          'Could not authenticate with Google. Please try again.'
-      );
+  // Initialize state from local device storage whenever modal opens
+  useEffect(() => {
+    if (isOpen) {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        const parsed = stored ? JSON.parse(stored) : [];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setDeviceAccounts(parsed);
+          setView('picker');
+        } else {
+          setDeviceAccounts([]);
+          setView('email');
+        }
+      } catch (e) {
+        setDeviceAccounts([]);
+        setView('email');
+      }
+      setEmail('');
+      setName('');
+      setPassword('');
+      setShowPassword(false);
+      setError('');
       setIsSubmitting(false);
-      setSelectedEmail(null);
+    }
+  }, [isOpen]);
+
+  // Helper to remove an account from this device's remembered list
+  const handleRemoveAccount = (emailToRemove, e) => {
+    e.stopPropagation();
+    try {
+      const updated = deviceAccounts.filter(
+        (acc) => acc.email.toLowerCase() !== emailToRemove.toLowerCase()
+      );
+      setDeviceAccounts(updated);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      if (updated.length === 0) {
+        setView('email');
+      }
+    } catch (err) {
+      console.error('Error removing account from device:', err);
     }
   };
 
-  const handleCustomSubmit = async (e) => {
+  // Helper to save authenticated account to this device's storage
+  const saveAccountToDevice = (accountData) => {
+    try {
+      const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+      const filtered = current.filter(
+        (a) => a.email.toLowerCase() !== accountData.email.toLowerCase()
+      );
+      const updated = [
+        {
+          email: accountData.email,
+          name: accountData.name || accountData.email.split('@')[0],
+          avatar:
+            accountData.avatar ||
+            `https://ui-avatars.com/api/?name=${encodeURIComponent(
+              accountData.name || accountData.email
+            )}&background=2563eb&color=fff&bold=true`,
+        },
+        ...filtered,
+      ].slice(0, 5); // Remember up to 5 profiles on this device
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      setDeviceAccounts(updated);
+    } catch (err) {
+      console.warn('Could not save account to device storage:', err);
+    }
+  };
+
+  // Handle picking a saved account from this device
+  const handleSelectDeviceAccount = (acc) => {
+    setEmail(acc.email);
+    setName(acc.name || '');
+    setPassword('');
+    setError('');
+    setView('password');
+  };
+
+  // Step 1: Submit Email
+  const handleEmailSubmit = (e) => {
     e.preventDefault();
     setError('');
 
-    const trimmedEmail = customEmail.trim().toLowerCase();
-    if (!trimmedEmail) {
-      setError('Please enter your Google account email address.');
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed) {
+      setError('Enter your Google email address.');
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(trimmedEmail)) {
-      setError('Couldn’t find your Google Account. Please enter a valid email address.');
+    if (!emailRegex.test(trimmed)) {
+      setError('Couldn’t find your Google Account. Please enter a valid email.');
       return;
     }
 
-    // Derive or use custom name
+    setEmail(trimmed);
     const derivedName =
-      customName.trim() ||
-      trimmedEmail
+      name.trim() ||
+      trimmed
         .split('@')[0]
         .replace(/[._-]/g, ' ')
         .replace(/\b\w/g, (c) => c.toUpperCase());
+    setName(derivedName);
+    setPassword('');
+    setView('password');
+  };
+
+  // Step 2: Submit Password and Authenticate
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!password) {
+      setError('Please enter your password.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
 
     setIsSubmitting(true);
-    setSelectedEmail(trimmedEmail);
 
     try {
-      await onGoogleLogin({
-        email: trimmedEmail,
-        name: derivedName,
+      const userPayload = {
+        email: email.trim().toLowerCase(),
+        password,
+        name: name || email.split('@')[0],
         avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(
-          derivedName
-        )}&background=0284c7&color=fff&bold=true`,
-        googleId: `google_oauth_${trimmedEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
-      });
+          name || email
+        )}&background=2563eb&color=fff&bold=true`,
+        googleId: `google_oauth_${email.replace(/[^a-zA-Z0-9]/g, '_')}`,
+      };
+
+      const result = await onGoogleLogin(userPayload);
+      saveAccountToDevice(result || userPayload);
       onClose();
     } catch (err) {
-      console.error('Custom Google sign-in failed:', err);
-      setError(
+      console.error('Google sign-in error:', err);
+      const backendMessage =
         err.response?.data?.message ||
-          'Google authentication encountered an issue.'
-      );
+        'Authentication failed. Please verify your password.';
+      setError(backendMessage);
       setIsSubmitting(false);
-      setSelectedEmail(null);
     }
   };
 
+  const getInitials = (accountName, accountEmail) => {
+    if (accountName) {
+      const parts = accountName.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+      }
+      return parts[0].slice(0, 2).toUpperCase();
+    }
+    return (accountEmail || 'U').slice(0, 2).toUpperCase();
+  };
+
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="relative w-full max-w-[440px] rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-gray-100 font-['Plus_Jakarta_Sans',sans-serif] animate-in zoom-in-95 duration-150">
+      <div className="relative w-full max-w-[420px] rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-gray-100 font-['Plus_Jakarta_Sans',sans-serif] animate-in zoom-in-95 duration-150">
         {/* Close Button */}
         <button
           onClick={onClose}
           disabled={isSubmitting}
+          aria-label="Close"
           className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-50"
         >
           <X className="h-4 w-4" />
@@ -145,10 +230,11 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
             Sign in with Google
           </h2>
           <p className="mt-1 text-xs text-gray-500 font-medium">
-            to continue to <span className="font-bold text-gray-700">Drivora</span>
+            to continue to <span className="font-bold text-gray-800">Drivora</span>
           </p>
         </div>
 
+        {/* Security / Error Message Banner */}
         {error && (
           <div className="mb-4 flex items-start gap-2.5 rounded-xl bg-red-50 p-3 text-xs text-red-700 border border-red-200 animate-in fade-in">
             <AlertCircle className="h-4 w-4 flex-shrink-0 text-red-500 mt-0.5" />
@@ -156,65 +242,63 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
           </div>
         )}
 
-        {!isUsingAnother ? (
-          /* ACCOUNT LIST VIEW */
-          <div className="space-y-2.5">
-            <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-1">
-              Choose an account
+        {/* VIEW 1: DEVICE-SAVED ACCOUNTS PICKER */}
+        {view === 'picker' && (
+          <div className="space-y-3 animate-in fade-in">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
+                Accounts on this device
+              </span>
+              <span className="text-[10px] text-gray-400 font-medium">
+                Device isolated
+              </span>
             </div>
 
             <div className="divide-y divide-gray-100 rounded-2xl border border-gray-200/80 overflow-hidden bg-white shadow-2xs">
-              {defaultAccounts.map((acc) => {
-                const isThisLoading = isSubmitting && selectedEmail === acc.email;
-                return (
-                  <button
-                    key={acc.email}
-                    onClick={() => handleSelectAccount(acc)}
-                    disabled={isSubmitting}
-                    className="w-full flex items-center justify-between p-3.5 hover:bg-gray-50/90 active:bg-gray-100 transition-colors text-left disabled:opacity-60 group"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`h-9 w-9 rounded-full ${acc.color} text-white flex items-center justify-center font-bold text-xs shadow-xs flex-shrink-0`}
-                      >
-                        {acc.initials}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs sm:text-sm font-bold text-gray-900 truncate">
-                            {acc.name}
-                          </span>
-                          {acc.badge && (
-                            <span className="px-1.5 py-0.5 rounded-md bg-blue-50 text-[10px] font-bold text-blue-700 border border-blue-100">
-                              {acc.badge}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-500 truncate mt-0.5">
-                          {acc.email}
-                        </p>
-                      </div>
+              {deviceAccounts.map((acc) => (
+                <div
+                  key={acc.email}
+                  onClick={() => handleSelectDeviceAccount(acc)}
+                  className="w-full flex items-center justify-between p-3.5 hover:bg-gray-50/90 active:bg-gray-100 transition-colors text-left cursor-pointer group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs flex-shrink-0">
+                      {getInitials(acc.name, acc.email)}
                     </div>
-
-                    <div className="flex-shrink-0 pl-2">
-                      {isThisLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500 transition-colors" />
-                      )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm font-bold text-gray-900 truncate">
+                        {acc.name || acc.email}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">
+                        {acc.email}
+                      </p>
                     </div>
-                  </button>
-                );
-              })}
+                  </div>
 
-              {/* Use Another Account Button */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0 pl-2">
+                    {/* Remove account from this device button */}
+                    <button
+                      type="button"
+                      onClick={(e) => handleRemoveAccount(acc.email, e)}
+                      title="Remove account from this device"
+                      className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                    <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500 transition-colors" />
+                  </div>
+                </div>
+              ))}
+
+              {/* Use Another Account */}
               <button
                 onClick={() => {
                   setError('');
-                  setIsUsingAnother(true);
+                  setEmail('');
+                  setPassword('');
+                  setView('email');
                 }}
-                disabled={isSubmitting}
-                className="w-full flex items-center gap-3 p-3.5 hover:bg-gray-50/90 active:bg-gray-100 transition-colors text-left text-gray-700 group font-semibold text-xs disabled:opacity-60"
+                className="w-full flex items-center gap-3 p-3.5 hover:bg-gray-50/90 active:bg-gray-100 transition-colors text-left text-gray-700 group font-semibold text-xs"
               >
                 <div className="h-9 w-9 rounded-full bg-gray-100 border border-dashed border-gray-300 text-gray-500 flex items-center justify-center flex-shrink-0 group-hover:border-blue-500 group-hover:text-blue-600 transition-colors">
                   <User className="h-4 w-4" />
@@ -224,93 +308,174 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
                     Use another Google account
                   </span>
                   <p className="text-[11px] text-gray-400 font-normal">
-                    Sign in with any other Gmail or Google Workspace
+                    Sign in with your Gmail or Google Workspace
                   </p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500 transition-colors" />
               </button>
             </div>
           </div>
-        ) : (
-          /* ENTER CUSTOM GOOGLE ACCOUNT FORM */
-          <form onSubmit={handleCustomSubmit} className="space-y-4 animate-in fade-in">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-bold text-gray-700">
-                Enter your Google Account
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setError('');
-                  setIsUsingAnother(false);
-                }}
-                className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline"
-              >
-                ← Back to accounts
-              </button>
-            </div>
+        )}
 
+        {/* VIEW 2: ENTER EMAIL */}
+        {view === 'email' && (
+          <form onSubmit={handleEmailSubmit} className="space-y-4 animate-in fade-in">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">
-                Email address
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-gray-700">
+                  Email or phone
+                </label>
+                {deviceAccounts.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError('');
+                      setView('picker');
+                    }}
+                    className="text-xs font-semibold text-blue-600 hover:underline"
+                  >
+                    ← Saved accounts
+                  </button>
+                )}
+              </div>
               <input
                 type="email"
                 required
                 autoFocus
-                value={customEmail}
+                value={email}
                 onChange={(e) => {
-                  setCustomEmail(e.target.value);
+                  setEmail(e.target.value);
                   setError('');
                 }}
                 placeholder="you@gmail.com"
                 className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 text-xs sm:text-sm text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
               />
+              <p className="mt-1.5 text-[11px] text-gray-400">
+                Enter your Google account to access your isolated 15 GB storage.
+              </p>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">
-                Your name (optional)
-              </label>
-              <input
-                type="text"
-                value={customName}
-                onChange={(e) => setCustomName(e.target.value)}
-                placeholder="e.g. Ayush Phalak"
-                className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 text-xs sm:text-sm text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-              />
+            <div className="pt-2 flex justify-end">
+              <button
+                type="submit"
+                className="flex items-center justify-center gap-2 py-2 px-5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold text-xs sm:text-sm shadow-md shadow-blue-600/25 transition-all"
+              >
+                <span>Next</span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
             </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold text-xs sm:text-sm shadow-md shadow-blue-600/25 transition-all disabled:opacity-60"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Verifying Google account...</span>
-                </>
-              ) : (
-                <>
-                  <span>Continue with this account</span>
-                  <ArrowRight className="h-4 w-4" />
-                </>
-              )}
-            </button>
           </form>
         )}
 
-        {/* Trust & Privacy Footer */}
+        {/* VIEW 3: ENTER PASSWORD & IDENTITY VERIFICATION */}
+        {view === 'password' && (
+          <form onSubmit={handlePasswordSubmit} className="space-y-4 animate-in fade-in">
+            {/* Account Pill with Avatar & Change Link */}
+            <div className="flex justify-center mb-2">
+              <div
+                onClick={() => {
+                  setError('');
+                  setPassword('');
+                  setView(deviceAccounts.length > 0 ? 'picker' : 'email');
+                }}
+                role="button"
+                tabIndex={0}
+                title="Click to switch account"
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-gray-200 bg-gray-50 hover:bg-gray-100 text-xs font-medium text-gray-700 cursor-pointer transition-colors max-w-full group"
+              >
+                <div className="h-5 w-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                  {getInitials(name, email)}
+                </div>
+                <span className="font-semibold text-gray-800 truncate max-w-[200px]">
+                  {email}
+                </span>
+                <ChevronDown className="h-3.5 w-3.5 text-gray-400 group-hover:text-gray-600 transition-colors shrink-0" />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-gray-700">
+                  Enter your password
+                </label>
+                <span className="text-[10px] text-gray-400 font-medium">
+                  Identity Verification
+                </span>
+              </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  autoFocus
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError('');
+                  }}
+                  placeholder="Account password"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 pr-10 text-xs sm:text-sm text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              <p className="mt-1.5 text-[11px] text-gray-400">
+                To protect your files, verify your identity or set your account password.
+              </p>
+            </div>
+
+            <div className="pt-2 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  setError('');
+                  setPassword('');
+                  setView(deviceAccounts.length > 0 ? 'picker' : 'email');
+                }}
+                disabled={isSubmitting}
+                className="text-xs font-bold text-gray-500 hover:text-gray-800 transition-colors disabled:opacity-50"
+              >
+                Back
+              </button>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex items-center justify-center gap-2 py-2 px-5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold text-xs sm:text-sm shadow-md shadow-blue-600/25 transition-all disabled:opacity-60"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Verifying...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Sign In</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Security & Isolation Footer */}
         <div className="mt-6 pt-4 border-t border-gray-100">
           <div className="flex items-center justify-center gap-1.5 text-[11px] text-emerald-700 font-semibold mb-2">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-            <span>Encrypted OAuth 2.0 Token Exchange • 15 GB Free Quota</span>
+            <span>End-to-End Isolated Cloud Storage • 15 GB Free Quota</span>
           </div>
           <p className="text-[10px] text-center text-gray-400 leading-relaxed">
-            To continue, Google will securely share your profile information with Drivora in accordance with our{' '}
-            <span className="text-gray-600 underline">Privacy Policy</span> and{' '}
-            <span className="text-gray-600 underline">Terms of Service</span>.
+            Your files and profile are strictly private. Devices only access data
+            belonging to the verified signed-in account.
           </p>
         </div>
       </div>

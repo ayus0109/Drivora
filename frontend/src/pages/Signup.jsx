@@ -72,8 +72,9 @@ const Signup = () => {
   };
 
   const handleGoogleLogin = async (payload) => {
-    await loginWithGoogle(payload);
+    const userData = await loginWithGoogle(payload);
     navigate('/');
+    return userData;
   };
 
   return (

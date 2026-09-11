@@ -125,7 +125,7 @@ router.post('/login', async (req, res, next) => {
  */
 router.post('/google', async (req, res, next) => {
   try {
-    const { email, name, avatar, googleId } = req.body;
+    const { email, password, name, avatar, googleId } = req.body;
 
     if (!email) {
       return res.status(400).json({
@@ -140,15 +140,33 @@ router.post('/google', async (req, res, next) => {
     if (!emailRegex.test(normalizedEmail)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid email address format provided by Google.',
+        message: 'Invalid email address format.',
       });
     }
 
-    // Check if user already exists (Enterprise Account Linking)
+    // Check if user already exists
     let user = await User.findOne({ email: normalizedEmail });
     const FIFTEEN_GB = 15 * 1024 * 1024 * 1024;
 
     if (user) {
+      // Strict Security: If user account has a password, require and verify it
+      if (user.password) {
+        if (!password) {
+          return res.status(401).json({
+            success: false,
+            requiresPassword: true,
+            message: 'This account is password-protected. Please enter your account password to verify your identity.',
+          });
+        }
+        const isMatch = await user.comparePassword(password);
+        if (!isMatch) {
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid password. Access denied.',
+          });
+        }
+      }
+
       // Link Google profile attributes if not already present
       let isModified = false;
       if (googleId && !user.googleId) {
@@ -173,7 +191,15 @@ router.post('/google', async (req, res, next) => {
         await user.save();
       }
     } else {
-      // Just-In-Time (JIT) Account Provisioning
+      // Just-In-Time (JIT) Account Provisioning: require password to prevent unauthenticated takeovers
+      if (!password || password.length < 6) {
+        return res.status(400).json({
+          success: false,
+          requiresPassword: true,
+          message: 'Please enter a password of at least 6 characters to secure your account.',
+        });
+      }
+
       const defaultName = name || normalizedEmail.split('@')[0];
       const defaultAvatar =
         avatar ||
@@ -183,6 +209,7 @@ router.post('/google', async (req, res, next) => {
 
       user = await User.create({
         email: normalizedEmail,
+        password: password,
         name: defaultName,
         avatar: defaultAvatar,
         googleId:
