@@ -41,12 +41,12 @@ const FileListRow = ({
         <div className="flex-shrink-0">{icon}</div>
         <div className="min-w-0 flex-1">
           <span
-            className="font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors block text-xs sm:text-sm"
+            className="font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors block text-sm sm:text-base"
             title={file.name}
           >
             {file.name}
           </span>
-          <div className="sm:hidden text-[10px] text-gray-400 font-medium mt-0.5">
+          <div className="sm:hidden text-xs text-gray-500 font-medium mt-1">
             {formatBytes(file.sizeBytes)} • {formatDate(file.createdAt)}
           </div>
         </div>
@@ -55,7 +55,7 @@ const FileListRow = ({
       {/* Date Modified */}
       <div
         onClick={() => onPreview && onPreview(file, 'preview')}
-        className="hidden sm:block flex-1 text-gray-500 text-xs truncate"
+        className="hidden sm:block flex-1 text-gray-600 text-sm font-medium truncate"
       >
         {formatDate(file.createdAt)}
       </div>
@@ -63,7 +63,7 @@ const FileListRow = ({
       {/* File Size */}
       <div
         onClick={() => onPreview && onPreview(file, 'preview')}
-        className="hidden md:block flex-1 text-gray-500 text-xs truncate"
+        className="hidden md:block flex-1 text-gray-600 text-sm font-semibold truncate"
       >
         {formatBytes(file.sizeBytes)}
       </div>
@@ -80,9 +80,9 @@ const FileListRow = ({
             onPreview && onPreview(file, 'preview');
           }}
           title="Preview"
-          className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors opacity-0 group-hover:opacity-100"
+          className="p-2 rounded-xl text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors opacity-0 group-hover:opacity-100"
         >
-          <Eye className="h-4 w-4" />
+          <Eye className="h-4.5 w-4.5" />
         </button>
 
         <button
@@ -91,9 +91,9 @@ const FileListRow = ({
             onDownload(file);
           }}
           title="Download"
-          className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors opacity-0 group-hover:opacity-100"
+          className="p-2 rounded-xl text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors opacity-0 group-hover:opacity-100"
         >
-          <Download className="h-4 w-4" />
+          <Download className="h-4.5 w-4.5" />
         </button>
 
         <button
@@ -102,9 +102,9 @@ const FileListRow = ({
             onShare(file);
           }}
           title="Share"
-          className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors opacity-0 group-hover:opacity-100"
+          className="p-2 rounded-xl text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors opacity-0 group-hover:opacity-100"
         >
-          <Share2 className="h-4 w-4" />
+          <Share2 className="h-4.5 w-4.5" />
         </button>
 
         <button
@@ -113,18 +113,18 @@ const FileListRow = ({
             setMenuOpen(!menuOpen);
           }}
           title="More options"
-          className={`p-1.5 rounded-lg transition-colors ${
+          className={`p-2 rounded-xl transition-colors ${
             menuOpen
               ? 'bg-blue-100 text-blue-600'
               : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
           }`}
         >
-          <MoreVertical className="h-4 w-4" />
+          <MoreVertical className="h-4.5 w-4.5" />
         </button>
 
         {menuOpen && (
           <div
-            className="absolute right-0 top-9 z-50 w-48 rounded-xl bg-white p-1.5 shadow-2xl ring-1 ring-black/10 border border-gray-100 text-sm animate-in fade-in zoom-in-95 duration-100"
+            className="absolute right-0 top-10 z-50 w-52 rounded-2xl bg-white p-2 shadow-2xl ring-1 ring-black/10 border border-gray-100 text-sm animate-in fade-in zoom-in-95 duration-100"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -132,9 +132,9 @@ const FileListRow = ({
                 setMenuOpen(false);
                 onPreview && onPreview(file, 'preview');
               }}
-              className="flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors font-medium text-xs"
+              className="flex w-full items-center gap-3 px-3.5 py-2.5 rounded-xl text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors font-semibold text-sm touch-active"
             >
-              <Eye className="h-4 w-4 text-blue-500" />
+              <Eye className="h-4.5 w-4.5 text-blue-500" />
               <span>Preview</span>
             </button>
 
@@ -143,9 +143,9 @@ const FileListRow = ({
                 setMenuOpen(false);
                 onPreview && onPreview(file, 'details');
               }}
-              className="flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors font-medium text-xs"
+              className="flex w-full items-center gap-3 px-3.5 py-2.5 rounded-xl text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors font-semibold text-sm touch-active"
             >
-              <ShieldCheck className="h-4 w-4 text-emerald-500" />
+              <ShieldCheck className="h-4.5 w-4.5 text-emerald-500" />
               <span>Details & Security</span>
             </button>
 
@@ -154,9 +154,9 @@ const FileListRow = ({
                 setMenuOpen(false);
                 onDownload(file);
               }}
-              className="flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors text-xs"
+              className="flex w-full items-center gap-3 px-3.5 py-2.5 rounded-xl text-gray-700 hover:bg-gray-100 transition-colors text-sm font-semibold touch-active"
             >
-              <Download className="h-4 w-4 text-gray-500" />
+              <Download className="h-4.5 w-4.5 text-gray-500" />
               <span>Download</span>
             </button>
 
@@ -165,9 +165,9 @@ const FileListRow = ({
                 setMenuOpen(false);
                 onShare(file);
               }}
-              className="flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors text-xs"
+              className="flex w-full items-center gap-3 px-3.5 py-2.5 rounded-xl text-gray-700 hover:bg-gray-100 transition-colors text-sm font-semibold touch-active"
             >
-              <Share2 className="h-4 w-4 text-purple-500" />
+              <Share2 className="h-4.5 w-4.5 text-purple-500" />
               <span>Share link</span>
             </button>
 
@@ -178,9 +178,9 @@ const FileListRow = ({
                 setMenuOpen(false);
                 onRename(file);
               }}
-              className="flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors text-xs"
+              className="flex w-full items-center gap-3 px-3.5 py-2.5 rounded-xl text-gray-700 hover:bg-gray-100 transition-colors text-sm font-semibold touch-active"
             >
-              <Edit2 className="h-4 w-4 text-gray-500" />
+              <Edit2 className="h-4.5 w-4.5 text-gray-500" />
               <span>Rename</span>
             </button>
 
@@ -189,9 +189,9 @@ const FileListRow = ({
                 setMenuOpen(false);
                 onDelete(file);
               }}
-              className="flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors text-xs"
+              className="flex w-full items-center gap-3 px-3.5 py-2.5 rounded-xl text-red-600 hover:bg-red-50 transition-colors text-sm font-semibold touch-active"
             >
-              <Trash2 className="h-4 w-4 text-red-500" />
+              <Trash2 className="h-4.5 w-4.5 text-red-500" />
               <span>Delete</span>
             </button>
           </div>

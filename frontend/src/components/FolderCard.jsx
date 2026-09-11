@@ -27,8 +27,8 @@ const FolderCard = ({ folder, onOpen, onRename, onDelete, viewMode = 'grid' }) =
           onClick={() => onOpen(folder._id)}
           className="flex items-center gap-3 min-w-0 flex-1"
         >
-          <FolderIcon className="h-5 w-5 text-amber-500 fill-amber-500/20 flex-shrink-0" />
-          <span className="text-sm font-medium text-gray-800 truncate">
+          <FolderIcon className="h-5.5 w-5.5 text-amber-500 fill-amber-500/20 flex-shrink-0" />
+          <span className="text-sm sm:text-base font-bold text-gray-800 truncate">
             {folder.name}
           </span>
         </div>
@@ -40,26 +40,26 @@ const FolderCard = ({ folder, onOpen, onRename, onDelete, viewMode = 'grid' }) =
               setMenuOpen(!menuOpen);
             }}
             title="Folder options"
-            className={`p-1.5 rounded-lg transition-colors ${
+            className={`p-2 rounded-xl transition-colors ${
               menuOpen
                 ? 'bg-blue-100 text-blue-600'
                 : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <MoreVertical className="h-4 w-4" />
+            <MoreVertical className="h-4.5 w-4.5" />
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 top-9 z-50 w-40 rounded-xl bg-white p-1.5 shadow-2xl ring-1 ring-black/10 border border-gray-100 text-sm animate-in fade-in zoom-in-95 duration-100">
+            <div className="absolute right-0 top-10 z-50 w-44 rounded-2xl bg-white p-2 shadow-2xl ring-1 ring-black/10 border border-gray-100 text-sm animate-in fade-in zoom-in-95 duration-100">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setMenuOpen(false);
                   onRename(folder);
                 }}
-                className="flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors text-xs"
+                className="flex w-full items-center gap-3 px-3.5 py-2.5 rounded-xl text-gray-700 hover:bg-gray-100 transition-colors text-sm font-semibold touch-active"
               >
-                <Edit2 className="h-4 w-4 text-gray-500" />
+                <Edit2 className="h-4.5 w-4.5 text-gray-500" />
                 <span>Rename</span>
               </button>
               <button
@@ -68,9 +68,9 @@ const FolderCard = ({ folder, onOpen, onRename, onDelete, viewMode = 'grid' }) =
                   setMenuOpen(false);
                   onDelete(folder);
                 }}
-                className="flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors text-xs"
+                className="flex w-full items-center gap-3 px-3.5 py-2.5 rounded-xl text-red-600 hover:bg-red-50 transition-colors text-sm font-semibold touch-active"
               >
-                <Trash2 className="h-4 w-4 text-red-500" />
+                <Trash2 className="h-4.5 w-4.5 text-red-500" />
                 <span>Delete</span>
               </button>
             </div>
@@ -90,8 +90,8 @@ const FolderCard = ({ folder, onOpen, onRename, onDelete, viewMode = 'grid' }) =
         onClick={() => onOpen(folder._id)}
         className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1"
       >
-        <FolderIcon className="h-5 w-5 sm:h-7 sm:w-7 text-amber-500 fill-amber-500/20 flex-shrink-0" />
-        <span className="text-xs sm:text-sm font-medium text-gray-800 truncate" title={folder.name}>
+        <FolderIcon className="h-6 w-6 sm:h-7 sm:w-7 text-amber-500 fill-amber-500/20 flex-shrink-0" />
+        <span className="text-sm sm:text-base font-bold text-gray-800 truncate" title={folder.name}>
           {folder.name}
         </span>
       </div>
@@ -103,26 +103,26 @@ const FolderCard = ({ folder, onOpen, onRename, onDelete, viewMode = 'grid' }) =
             setMenuOpen(!menuOpen);
           }}
           title="Folder options"
-          className={`p-1.5 rounded-lg transition-colors ${
+          className={`p-2 rounded-xl transition-colors ${
             menuOpen
               ? 'bg-blue-100 text-blue-600'
               : 'text-gray-400 hover:text-gray-700 hover:bg-gray-100'
           }`}
         >
-          <MoreVertical className="h-4 w-4" />
+          <MoreVertical className="h-4.5 w-4.5" />
         </button>
 
         {menuOpen && (
-          <div className="absolute right-0 top-9 z-50 w-40 rounded-xl bg-white p-1.5 shadow-2xl ring-1 ring-black/10 border border-gray-100 text-sm animate-in fade-in zoom-in-95 duration-100">
+          <div className="absolute right-0 top-10 z-50 w-44 rounded-2xl bg-white p-2 shadow-2xl ring-1 ring-black/10 border border-gray-100 text-sm animate-in fade-in zoom-in-95 duration-100">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setMenuOpen(false);
                 onRename(folder);
               }}
-              className="flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors text-xs"
+              className="flex w-full items-center gap-3 px-3.5 py-2.5 rounded-xl text-gray-700 hover:bg-gray-100 transition-colors text-sm font-semibold touch-active"
             >
-              <Edit2 className="h-4 w-4 text-gray-500" />
+              <Edit2 className="h-4.5 w-4.5 text-gray-500" />
               <span>Rename</span>
             </button>
             <button
@@ -131,9 +131,9 @@ const FolderCard = ({ folder, onOpen, onRename, onDelete, viewMode = 'grid' }) =
                 setMenuOpen(false);
                 onDelete(folder);
               }}
-              className="flex w-full items-center gap-2.5 px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors text-xs"
+              className="flex w-full items-center gap-3 px-3.5 py-2.5 rounded-xl text-red-600 hover:bg-red-50 transition-colors text-sm font-semibold touch-active"
             >
-              <Trash2 className="h-4 w-4 text-red-500" />
+              <Trash2 className="h-4.5 w-4.5 text-red-500" />
               <span>Delete</span>
             </button>
           </div>

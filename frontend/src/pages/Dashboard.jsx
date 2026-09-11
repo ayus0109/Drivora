@@ -391,14 +391,19 @@ const Dashboard = () => {
           <nav className="space-y-1">
             <button
               onClick={() => handleNavigate(null)}
-              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-colors ${
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-bold transition-all ${
                 currentFolderId === null
-                  ? 'bg-blue-50 text-blue-700'
+                  ? 'bg-blue-50 text-blue-700 shadow-2xs'
                   : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
               }`}
             >
-              <HardDrive className="h-4 w-4 text-blue-600" />
-              <span>My Storage</span>
+              <div className="flex items-center gap-3">
+                <HardDrive className="h-5 w-5 text-blue-600" />
+                <span>My Drive</span>
+              </div>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100/70 text-blue-700 font-semibold">
+                {files.length}
+              </span>
             </button>
           </nav>
         </div>
@@ -492,24 +497,33 @@ const Dashboard = () => {
                     setIsMobileDrawerOpen(false);
                     setIsCreateFolderOpen(true);
                   }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white active:scale-95 text-gray-700 font-semibold text-xs shadow-2xs"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white active:scale-95 text-gray-700 font-bold text-sm shadow-2xs"
                 >
-                  <FolderPlus className="h-4 w-4 text-gray-500" />
+                  <FolderPlus className="h-4.5 w-4.5 text-gray-500" />
                   <span>New Folder</span>
                 </button>
               </div>
 
               {/* Navigation Items in Drawer */}
-              <nav className="space-y-1">
+              <nav className="space-y-1.5">
                 <button
                   onClick={() => {
                     setIsMobileDrawerOpen(false);
                     handleNavigate(null);
                   }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold text-blue-700 bg-blue-50"
+                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-sm font-bold transition-all ${
+                    currentFolderId === null
+                      ? 'bg-blue-50 text-blue-700 shadow-2xs border border-blue-100/80'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
                 >
-                  <HardDrive className="h-4 w-4 text-blue-600" />
-                  <span>My Storage</span>
+                  <div className="flex items-center gap-3">
+                    <HardDrive className="h-5 w-5 text-blue-600" />
+                    <span>My Drive</span>
+                  </div>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-bold">
+                    {files.length} {files.length === 1 ? 'file' : 'files'}
+                  </span>
                 </button>
 
                 <button
@@ -517,9 +531,9 @@ const Dashboard = () => {
                     setIsMobileDrawerOpen(false);
                     setIsVivaOpen(true);
                   }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-purple-700 hover:bg-purple-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-semibold text-purple-700 hover:bg-purple-50 transition-colors"
                 >
-                  <Layers className="h-4 w-4 text-purple-600" />
+                  <Layers className="h-5 w-5 text-purple-600" />
                   <span>Architecture & Viva Guide</span>
                 </button>
 
@@ -528,9 +542,9 @@ const Dashboard = () => {
                     setIsMobileDrawerOpen(false);
                     setIsSecurityOpen(true);
                   }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-blue-700 hover:bg-blue-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-semibold text-blue-700 hover:bg-blue-50 transition-colors"
                 >
-                  <ShieldCheck className="h-4 w-4 text-blue-600" />
+                  <ShieldCheck className="h-5 w-5 text-blue-600" />
                   <span>Privacy & Security</span>
                 </button>
 
@@ -539,9 +553,9 @@ const Dashboard = () => {
                     setIsMobileDrawerOpen(false);
                     setIsActivityOpen(true);
                   }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
+                  className="w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
                 >
-                  <History className="h-4 w-4 text-gray-500" />
+                  <History className="h-5 w-5 text-gray-500" />
                   <span>Activity Trail</span>
                 </button>
               </nav>
@@ -694,44 +708,22 @@ const Dashboard = () => {
           </div>
         </header>
 
-        {/* SUB-HEADER / TOOLBAR */}
-        <div className="px-3.5 sm:px-6 py-2.5 sm:py-3 border-b border-gray-200/70 flex items-center justify-between gap-2.5 sm:gap-4 flex-wrap flex-shrink-0 bg-white shadow-2xs">
-          {/* Breadcrumb Path */}
-          <div className="flex-1 min-w-0 max-w-full">
+        {/* SUB-HEADER TIER 1: LOCATION BAR & CONTROLS (Google Drive Standard) */}
+        <div className="px-3.5 sm:px-6 py-2.5 sm:py-3.5 border-b border-gray-100 bg-white flex items-center justify-between gap-3 flex-shrink-0 shadow-2xs">
+          {/* Breadcrumb / Location Path with Prominent "My Drive" */}
+          <div className="flex-1 min-w-0">
             <Breadcrumbs path={breadcrumbs} onNavigate={handleNavigate} />
-          </div>
-
-          {/* Quick File Type Filters */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 max-w-full">
-            {[
-              { id: 'all', label: `All (${files.length})` },
-              { id: 'documents', label: 'Docs & PDFs' },
-              { id: 'images', label: 'Images' },
-              { id: 'media', label: 'Media' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setFileTypeFilter(tab.id)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex-shrink-0 touch-active ${
-                  fileTypeFilter === tab.id
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
           </div>
 
           {/* View Toggle & Sort Controls */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Sort Dropdown */}
-            <div className="flex items-center gap-1.5 bg-gray-100/90 rounded-lg px-2.5 py-1 text-xs text-gray-700">
-              <ArrowUpDown className="h-3.5 w-3.5 text-gray-400" />
+            <div className="flex items-center gap-1.5 bg-gray-100/90 hover:bg-gray-100 rounded-xl px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm text-gray-700 font-bold shadow-2xs transition-colors">
+              <ArrowUpDown className="h-4 w-4 text-gray-500" />
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="bg-transparent font-semibold focus:outline-none cursor-pointer"
+                className="bg-transparent font-bold focus:outline-none cursor-pointer"
               >
                 <option value="createdAt">Date</option>
                 <option value="name">Name</option>
@@ -740,7 +732,7 @@ const Dashboard = () => {
 
               <button
                 onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                className="font-bold text-gray-500 hover:text-gray-900 px-0.5"
+                className="font-bold text-gray-600 hover:text-gray-900 px-1"
                 title={`Sort ${sortOrder === 'asc' ? 'Ascending' : 'Descending'}`}
               >
                 {sortOrder === 'asc' ? '↑' : '↓'}
@@ -748,31 +740,53 @@ const Dashboard = () => {
             </div>
 
             {/* Grid / List View Toggle */}
-            <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+            <div className="flex items-center bg-gray-100 rounded-xl p-1 shadow-2xs">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-md transition-colors ${
+                className={`p-1.5 sm:p-2 rounded-lg transition-all touch-active ${
                   viewMode === 'grid'
                     ? 'bg-white text-blue-600 shadow-xs'
                     : 'text-gray-500 hover:text-gray-900'
                 }`}
                 title="Grid view"
               >
-                <LayoutGrid className="h-4 w-4" />
+                <LayoutGrid className="h-4.5 w-4.5" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded-md transition-colors ${
+                className={`p-1.5 sm:p-2 rounded-lg transition-all touch-active ${
                   viewMode === 'list'
                     ? 'bg-white text-blue-600 shadow-xs'
                     : 'text-gray-500 hover:text-gray-900'
                 }`}
                 title="List view"
               >
-                <List className="h-4 w-4" />
+                <List className="h-4.5 w-4.5" />
               </button>
             </div>
           </div>
+        </div>
+
+        {/* SUB-HEADER TIER 2: QUICK CATEGORY FILTER PILLS BAR */}
+        <div className="px-3.5 sm:px-6 py-2 border-b border-gray-200/60 bg-[#fbfcfd] flex items-center gap-2 overflow-x-auto no-scrollbar flex-shrink-0">
+          {[
+            { id: 'all', label: `All (${files.length})` },
+            { id: 'documents', label: 'Docs & PDFs' },
+            { id: 'images', label: 'Images' },
+            { id: 'media', label: 'Media' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setFileTypeFilter(tab.id)}
+              className={`px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold transition-all flex-shrink-0 touch-active shadow-2xs ${
+                fileTypeFilter === tab.id
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200/80'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* MAIN BROWSER CONTENT */}
@@ -801,15 +815,15 @@ const Dashboard = () => {
               {/* FOLDERS SECTION */}
               {folders.length > 0 && (
                 <div>
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2.5 sm:mb-3">
+                  <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
                     Folders ({folders.length})
                   </h3>
 
                   <div
                     className={
                       viewMode === 'grid'
-                        ? 'grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3'
-                        : 'divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white shadow-xs overflow-visible'
+                        ? 'grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4'
+                        : 'divide-y divide-gray-100 rounded-2xl border border-gray-200 bg-white shadow-xs overflow-visible'
                     }
                   >
                     {folders.map((f) => (
@@ -833,8 +847,8 @@ const Dashboard = () => {
               {/* FILES SECTION */}
               {files.length > 0 && (
                 <div>
-                  <div className="flex items-center justify-between mb-2.5 sm:mb-3">
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">
                       Files ({filteredFiles.length} of {files.length})
                     </h3>
                   </div>
