@@ -53,12 +53,26 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
       try {
         const stored = localStorage.getItem(STORAGE_KEY);
         const parsed = stored ? JSON.parse(stored) : [];
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setDeviceAccounts(parsed);
+        const valid = Array.isArray(parsed)
+          ? parsed.filter(
+              (acc) =>
+                acc &&
+                acc.email &&
+                !acc.email.toLowerCase().includes('test.com') &&
+                !acc.email.toLowerCase().includes('example') &&
+                !acc.name?.toLowerCase().includes('cloud user') &&
+                !acc.badge?.toLowerCase().includes('linked drive')
+            )
+          : [];
+
+        if (valid.length > 0) {
+          setDeviceAccounts(valid);
           setView('picker');
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(valid));
         } else {
           setDeviceAccounts([]);
           setView('email');
+          localStorage.removeItem(STORAGE_KEY);
         }
       } catch (e) {
         setDeviceAccounts([]);
@@ -266,9 +280,14 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
                       {getInitials(acc.name, acc.email)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs sm:text-sm font-bold text-gray-900 truncate">
-                        {acc.name || acc.email}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs sm:text-sm font-bold text-gray-900 truncate">
+                          {acc.name || acc.email}
+                        </p>
+                        <span className="px-1.5 py-0.5 rounded-md bg-gray-100 text-[10px] font-medium text-gray-500 border border-gray-200">
+                          {acc.status || 'Signed out'}
+                        </span>
+                      </div>
                       <p className="text-xs text-gray-500 truncate mt-0.5">
                         {acc.email}
                       </p>
@@ -340,14 +359,16 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
               </div>
               <input
                 type="email"
+                name="email"
                 required
                 autoFocus
+                autoComplete="username email"
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
                   setError('');
                 }}
-                placeholder="you@gmail.com"
+                placeholder="Email or phone"
                 className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 text-xs sm:text-sm text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
               />
               <p className="mt-1.5 text-[11px] text-gray-400">
@@ -405,8 +426,10 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  name="password"
                   required
                   autoFocus
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);

@@ -21,6 +21,8 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const [recentAccount, setRecentAccount] = useState(null);
+
   // Reset form inputs completely on mount or when logging out
   useEffect(() => {
     setEmail('');
@@ -29,6 +31,35 @@ const Login = () => {
     setHasUserTyped(false);
     setPrivacyNotice('');
     setError('');
+
+    try {
+      const raw = localStorage.getItem('drivora_device_accounts');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const valid = parsed.filter(
+            (a) =>
+              a &&
+              a.email &&
+              !a.email.toLowerCase().includes('test.com') &&
+              !a.email.toLowerCase().includes('example') &&
+              !a.name?.toLowerCase().includes('cloud user') &&
+              !a.badge?.toLowerCase().includes('linked drive')
+          );
+          if (valid.length > 0) {
+            setRecentAccount(valid[0]);
+          } else {
+            setRecentAccount(null);
+          }
+        } else {
+          setRecentAccount(null);
+        }
+      } else {
+        setRecentAccount(null);
+      }
+    } catch (e) {
+      setRecentAccount(null);
+    }
 
     return () => {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
@@ -165,6 +196,40 @@ const Login = () => {
           <span>Continue with Google</span>
         </button>
 
+        {/* Recent Account on This Device (Signed-out Profile) */}
+        {recentAccount && !email && (
+          <div
+            onClick={() => {
+              setEmail(recentAccount.email);
+              passwordInputRef.current?.focus();
+            }}
+            className="flex items-center justify-between p-2.5 rounded-2xl border border-blue-100 bg-blue-50/50 hover:bg-blue-50 active:scale-[0.99] cursor-pointer transition-all group"
+            title="Click to quickly fill your email"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="h-8 w-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                {(recentAccount.name || recentAccount.email)[0].toUpperCase()}
+              </div>
+              <div className="min-w-0 text-left">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-bold text-gray-900 truncate">
+                    {recentAccount.name || recentAccount.email}
+                  </p>
+                  <span className="px-1.5 py-0.2 rounded-sm bg-gray-100 text-[9px] font-medium text-gray-500 border border-gray-200">
+                    Signed out
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-500 truncate">
+                  {recentAccount.email}
+                </p>
+              </div>
+            </div>
+            <span className="text-[11px] font-bold text-blue-600 group-hover:underline shrink-0 pr-1">
+              Select →
+            </span>
+          </div>
+        )}
+
         {/* Divider */}
         <div className="relative flex items-center justify-center">
           <div className="border-t border-gray-200 w-full" />
@@ -193,7 +258,7 @@ const Login = () => {
           </div>
         )}
 
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit} autoComplete="off">
+        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           {/* Email field */}
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1">
@@ -204,8 +269,8 @@ const Login = () => {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
-              autoComplete="off"
+              placeholder="Enter your email"
+              autoComplete="username email"
               className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 text-sm text-gray-900 shadow-2xs placeholder:text-gray-400 focus:bg-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
             />
           </div>

@@ -1,6 +1,30 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import api from '../api/axios';
 
+export const sanitizeDeviceAccounts = () => {
+  try {
+    const key = 'drivora_device_accounts';
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const cleaned = parsed.filter(
+          (acc) =>
+            acc &&
+            acc.email &&
+            !acc.email.toLowerCase().includes('test.com') &&
+            !acc.email.toLowerCase().includes('example') &&
+            !acc.name?.toLowerCase().includes('cloud user') &&
+            !acc.badge?.toLowerCase().includes('linked drive')
+        );
+        localStorage.setItem(key, JSON.stringify(cleaned));
+        return cleaned;
+      }
+    }
+  } catch (e) {}
+  return [];
+};
+
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
@@ -28,6 +52,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     };
 
+    sanitizeDeviceAccounts();
     verifyAuth();
   }, []);
 
@@ -68,6 +93,43 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    if (user?.email) {
+      try {
+        const key = 'drivora_device_accounts';
+        const raw = localStorage.getItem(key);
+        const existing = raw ? JSON.parse(raw) : [];
+        const cleaned = Array.isArray(existing)
+          ? existing.filter(
+              (a) =>
+                a &&
+                a.email &&
+                !a.email.toLowerCase().includes('test.com') &&
+                !a.email.toLowerCase().includes('example') &&
+                !a.name?.toLowerCase().includes('cloud user') &&
+                !a.badge?.toLowerCase().includes('linked drive') &&
+                a.email.toLowerCase() !== user.email.toLowerCase()
+            )
+          : [];
+
+        const updated = [
+          {
+            email: user.email.toLowerCase(),
+            name: user.name || user.email.split('@')[0],
+            avatar:
+              user.avatar ||
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                user.name || user.email
+              )}&background=2563eb&color=fff&bold=true`,
+            status: 'Signed out',
+            lastLogout: Date.now(),
+          },
+          ...cleaned,
+        ].slice(0, 5);
+        localStorage.setItem(key, JSON.stringify(updated));
+      } catch (err) {
+        console.warn('Could not record logged out account:', err);
+      }
+    }
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setToken(null);

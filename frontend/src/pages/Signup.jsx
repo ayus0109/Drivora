@@ -134,7 +134,7 @@ const Signup = () => {
           </div>
         )}
 
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit} autoComplete="off">
+        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1">
               Email address
@@ -144,8 +144,8 @@ const Signup = () => {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
-              autoComplete="off"
+              placeholder="Enter your email"
+              autoComplete="username email"
               className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 text-sm text-gray-900 shadow-2xs placeholder:text-gray-400 focus:bg-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
             />
           </div>
