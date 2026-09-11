@@ -22,10 +22,15 @@ import FileDetailsDrawer from '../components/FileDetailsDrawer';
 import MoveModal from '../components/MoveModal';
 import StorageBreakdownModal from '../components/StorageBreakdownModal';
 import Toast from '../components/Toast';
+import UploadManagerDrawer from '../components/UploadManagerDrawer';
+import BulkGeneratorModal from '../components/BulkGeneratorModal';
+import uploadQueue from '../utils/uploadQueue';
+import { extractFilesFromDataTransfer, resolveFolderPath } from '../utils/fileTraversal';
 
 import {
   HardDrive,
   FolderPlus,
+  FolderUp,
   UploadCloud,
   LayoutGrid,
   List,
@@ -50,6 +55,7 @@ import {
   AlertTriangle,
   Check,
   Sparkles,
+  Zap,
 } from 'lucide-react';
 
 const FIFTEEN_GB = 16106127360; // 15 GB (Google Drive standard)
@@ -96,6 +102,13 @@ const Dashboard = () => {
   const [isSecurityOpen, setIsSecurityOpen] = useState(false);
   const [isActivityOpen, setIsActivityOpen] = useState(false);
   const [isVivaOpen, setIsVivaOpen] = useState(false);
+  const [isBulkGeneratorOpen, setIsBulkGeneratorOpen] = useState(false);
+  const [visibleFileCount, setVisibleFileCount] = useState(100);
+
+  const currentFolderIdRef = useRef(currentFolderId);
+  currentFolderIdRef.current = currentFolderId;
+  const breadcrumbsRef = useRef(breadcrumbs);
+  breadcrumbsRef.current = breadcrumbs;
 
   // Toast System
   const [toasts, setToasts] = useState([]);
@@ -110,7 +123,7 @@ const Dashboard = () => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Upload status tracking
+  // Upload status tracking (legacy fallback)
   const [uploadStatus, setUploadStatus] = useState({
     isUploading: false,
     progress: 0,
@@ -121,6 +134,14 @@ const Dashboard = () => {
 
   const uploadInputRef = useRef(null);
   const handleFileUploadRef = useRef(null);
+
+  // Connect uploadQueue batch completion to dashboard refresh
+  useEffect(() => {
+    uploadQueue.setBatchCompleteCallback(() => {
+      fetchData();
+      refreshUser();
+    });
+  }, []);
 
   // Full-Window Drag and Drop for external files (Google Drive standard)
   const [isWindowDragOver, setIsWindowDragOver] = useState(false);
@@ -152,18 +173,35 @@ const Dashboard = () => {
       }
     };
 
-    const handleDrop = (e) => {
+    const handleDrop = async (e) => {
       e.preventDefault();
       windowDragCounter.current = 0;
       setIsWindowDragOver(false);
 
-      const filesDropped = e.dataTransfer.files;
-      if (filesDropped && filesDropped.length > 0) {
-        Array.from(filesDropped).forEach((file) => {
-          if (handleFileUploadRef.current) {
-            handleFileUploadRef.current(file);
+      try {
+        const extracted = await extractFilesFromDataTransfer(e.dataTransfer);
+        if (extracted && extracted.length > 0) {
+          const payload = [];
+          for (const item of extracted) {
+            if (item.pathSegments && item.pathSegments.length > 0) {
+              const fId = await resolveFolderPath(item.pathSegments, currentFolderIdRef.current);
+              payload.push({
+                file: item.file,
+                folderId: fId,
+                folderName: item.pathSegments[item.pathSegments.length - 1],
+              });
+            } else {
+              payload.push({
+                file: item.file,
+                folderId: currentFolderIdRef.current,
+                folderName: breadcrumbsRef.current[breadcrumbsRef.current.length - 1]?.name || 'My Drive',
+              });
+            }
           }
-        });
+          uploadQueue.enqueue(payload);
+        }
+      } catch (err) {
+        console.error('Window drop error:', err);
       }
     };
 
@@ -308,98 +346,13 @@ const Dashboard = () => {
 
   const totalSelectedCount = selectedFileIds.length + selectedFolderIds.length;
 
-  // File Upload
-  const handleFileUpload = async (file) => {
-    const availableBytes = (user?.quotaBytes || FIFTEEN_GB) - (user?.usedStorageBytes || 0);
-
-    if (file.size > availableBytes) {
-      setUploadStatus({
-        isUploading: false,
-        progress: 0,
-        fileName: file.name,
-        message: `Upload rejected: "${file.name}" (${formatBytes(file.size)}) exceeds remaining quota (${formatBytes(availableBytes)}).`,
-        isError: true,
-      });
-      addToast('Storage quota exceeded.', 'error');
-      return;
-    }
-
-    try {
-      setUploadStatus({
-        isUploading: true,
-        progress: 0,
-        fileName: file.name,
-        message: 'Encrypting and uploading securely...',
-        isError: false,
-      });
-
-      const formData = new FormData();
-      formData.append('file', file);
-      if (currentFolderId && activeTab === 'drive') {
-        formData.append('folderId', currentFolderId);
-      }
-
-      const uploadRes = await api.post('/files/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            );
-            setUploadStatus((prev) => ({
-              ...prev,
-              progress: percentCompleted,
-            }));
-          }
-        },
-      });
-
-      if (uploadRes.data?.storage) {
-        updateUserStorage(
-          uploadRes.data.storage.usedStorageBytes,
-          uploadRes.data.storage.quotaBytes
-        );
-      } else {
-        updateUserStorage(
-          (user?.usedStorageBytes || 0) + file.size,
-          user?.quotaBytes || FIFTEEN_GB
-        );
-      }
-
-      const savedName = uploadRes.data?.file?.name || file.name;
-      setUploadStatus({
-        isUploading: false,
-        progress: 100,
-        fileName: savedName,
-        message: `"${savedName}" uploaded successfully!`,
-        isError: false,
-      });
-      addToast(`"${savedName}" uploaded successfully.`, 'success');
-
-      fetchData();
-      refreshUser();
-
-      setTimeout(() => {
-        setUploadStatus((prev) => ({ ...prev, message: null }));
-      }, 4000);
-    } catch (err) {
-      console.error('Upload error:', err);
-      const errorMsg =
-        err.response?.data?.message || 'Failed to upload file. Please try again.';
-
-      setUploadStatus({
-        isUploading: false,
-        progress: 0,
-        fileName: file.name,
-        message: errorMsg,
-        isError: true,
-      });
-      addToast(errorMsg, 'error');
-
-      setTimeout(() => {
-        setUploadStatus((prev) => ({ ...prev, message: null }));
-      }, 5000);
-    }
+  // File Upload - routes into enterprise concurrency queue
+  const handleFileUpload = (file) => {
+    uploadQueue.enqueue({
+      file,
+      folderId: currentFolderId,
+      folderName: breadcrumbs[breadcrumbs.length - 1]?.name || 'My Drive',
+    });
   };
 
   handleFileUploadRef.current = handleFileUpload;
@@ -1022,6 +975,17 @@ const Dashboard = () => {
                 <button
                   onClick={() => {
                     setIsMobileDrawerOpen(false);
+                    setIsBulkGeneratorOpen(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-sm font-bold text-amber-700 hover:bg-amber-50 transition-colors"
+                >
+                  <Zap className="h-5 w-5 text-amber-600 fill-amber-500" />
+                  <span>Fast Fill & Stress Test</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsMobileDrawerOpen(false);
                     setIsVivaOpen(true);
                   }}
                   className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-sm font-semibold text-purple-700 hover:bg-purple-50 transition-colors"
@@ -1140,6 +1104,16 @@ const Dashboard = () => {
               title="Search"
             >
               <Search className="h-5 w-5" />
+            </button>
+
+            {/* Storage Fast-Fill & Benchmark Button */}
+            <button
+              onClick={() => setIsBulkGeneratorOpen(true)}
+              title="Storage Fast-Fill & Scale Benchmark (1,000–5,000 Files)"
+              className="flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl border border-amber-200 bg-amber-50 text-xs font-bold text-amber-800 hover:bg-amber-100 touch-active transition-colors shadow-2xs cursor-pointer"
+            >
+              <Zap className="h-4 w-4 text-amber-600 fill-amber-500" />
+              <span className="hidden md:inline">Fast Fill / Test</span>
             </button>
 
             {/* Architecture & Viva Guide Button */}
@@ -1466,6 +1440,7 @@ const Dashboard = () => {
                 onUpload={handleFileUpload}
                 uploadStatus={uploadStatus}
                 onCreateFolder={() => setIsCreateFolderOpen(true)}
+                currentFolderId={currentFolderId}
                 currentFolderName={breadcrumbs[breadcrumbs.length - 1]?.name || 'My Drive'}
               />
             </div>
@@ -1539,46 +1514,10 @@ const Dashboard = () => {
                       No files matching the "{fileTypeFilter}" filter.
                     </div>
                   ) : viewMode === 'grid' ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-                      {filteredFiles.map((file) => (
-                        <FileCard
-                          key={file._id}
-                          file={file}
-                          isSelected={selectedFileIds.includes(file._id)}
-                          onToggleSelect={toggleSelectFile}
-                          onToggleStar={handleToggleStarFile}
-                          onDownload={handleDownload}
-                          onShare={(f) => setShareTarget(f)}
-                          onMove={(f) => handleOpenMoveSingle(f, false)}
-                          onOpenDetails={(f) => setDetailsFile(f)}
-                          onPreview={(f, tab) =>
-                            setPreviewTarget({ file: f, initialTab: tab || 'preview' })
-                          }
-                          onRename={(f) =>
-                            setRenameTarget({ item: f, isFolder: false })
-                          }
-                          onDelete={(f) => handleMoveToTrash(f, false)}
-                          isTrashView={activeTab === 'trash'}
-                          onRestore={(f) => handleRestoreItem(f, false)}
-                          onPermanentDelete={(f) =>
-                            setDeleteTarget({ item: f, isFolder: false, isPermanent: true })
-                          }
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl border border-gray-200 bg-white shadow-xs overflow-visible min-h-[160px]">
-                      {/* List Header */}
-                      <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider rounded-t-2xl">
-                        <span className="flex-[2]">Name</span>
-                        <span className="hidden sm:block flex-1">Last modified</span>
-                        <span className="hidden md:block flex-1">File size</span>
-                        <span className="w-24 text-right">Actions</span>
-                      </div>
-
-                      <div className="divide-y divide-gray-100">
-                        {filteredFiles.map((file) => (
-                          <FileListRow
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                        {filteredFiles.slice(0, visibleFileCount).map((file) => (
+                          <FileCard
                             key={file._id}
                             file={file}
                             isSelected={selectedFileIds.includes(file._id)}
@@ -1603,7 +1542,95 @@ const Dashboard = () => {
                           />
                         ))}
                       </div>
-                    </div>
+
+                      {filteredFiles.length > visibleFileCount && (
+                        <div className="mt-5 flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-gray-200 shadow-xs">
+                          <span className="text-xs font-semibold text-gray-600">
+                            Showing {Math.min(visibleFileCount, filteredFiles.length)} of {filteredFiles.length} files
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setVisibleFileCount((prev) => prev + 100)}
+                              className="px-4 py-2 rounded-xl bg-gray-50 border border-gray-300 hover:bg-gray-100 text-xs font-bold text-gray-700 shadow-2xs transition-all cursor-pointer"
+                            >
+                              Load Next 100 Files
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setVisibleFileCount(filteredFiles.length)}
+                              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
+                            >
+                              Show All ({filteredFiles.length})
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="rounded-2xl border border-gray-200 bg-white shadow-xs overflow-visible min-h-[160px]">
+                        {/* List Header */}
+                        <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider rounded-t-2xl">
+                          <span className="flex-[2]">Name</span>
+                          <span className="hidden sm:block flex-1">Last modified</span>
+                          <span className="hidden md:block flex-1">File size</span>
+                          <span className="w-24 text-right">Actions</span>
+                        </div>
+
+                        <div className="divide-y divide-gray-100">
+                          {filteredFiles.slice(0, visibleFileCount).map((file) => (
+                            <FileListRow
+                              key={file._id}
+                              file={file}
+                              isSelected={selectedFileIds.includes(file._id)}
+                              onToggleSelect={toggleSelectFile}
+                              onToggleStar={handleToggleStarFile}
+                              onDownload={handleDownload}
+                              onShare={(f) => setShareTarget(f)}
+                              onMove={(f) => handleOpenMoveSingle(f, false)}
+                              onOpenDetails={(f) => setDetailsFile(f)}
+                              onPreview={(f, tab) =>
+                                setPreviewTarget({ file: f, initialTab: tab || 'preview' })
+                              }
+                              onRename={(f) =>
+                                setRenameTarget({ item: f, isFolder: false })
+                              }
+                              onDelete={(f) => handleMoveToTrash(f, false)}
+                              isTrashView={activeTab === 'trash'}
+                              onRestore={(f) => handleRestoreItem(f, false)}
+                              onPermanentDelete={(f) =>
+                                setDeleteTarget({ item: f, isFolder: false, isPermanent: true })
+                              }
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      {filteredFiles.length > visibleFileCount && (
+                        <div className="mt-5 flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-gray-200 shadow-xs">
+                          <span className="text-xs font-semibold text-gray-600">
+                            Showing {Math.min(visibleFileCount, filteredFiles.length)} of {filteredFiles.length} files
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setVisibleFileCount((prev) => prev + 100)}
+                              className="px-4 py-2 rounded-xl bg-gray-50 border border-gray-300 hover:bg-gray-100 text-xs font-bold text-gray-700 shadow-2xs transition-all cursor-pointer"
+                            >
+                              Load Next 100 Files
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setVisibleFileCount(filteredFiles.length)}
+                              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
+                            >
+                              Show All ({filteredFiles.length})
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -1782,11 +1809,33 @@ const Dashboard = () => {
             e.preventDefault();
             setIsWindowDragOver(false);
           }}
-          onDrop={(e) => {
+          onDrop={async (e) => {
             e.preventDefault();
             setIsWindowDragOver(false);
-            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-              Array.from(e.dataTransfer.files).forEach((file) => handleFileUpload(file));
+            try {
+              const extracted = await extractFilesFromDataTransfer(e.dataTransfer);
+              if (extracted && extracted.length > 0) {
+                const payload = [];
+                for (const item of extracted) {
+                  if (item.pathSegments && item.pathSegments.length > 0) {
+                    const fId = await resolveFolderPath(item.pathSegments, currentFolderIdRef.current);
+                    payload.push({
+                      file: item.file,
+                      folderId: fId,
+                      folderName: item.pathSegments[item.pathSegments.length - 1],
+                    });
+                  } else {
+                    payload.push({
+                      file: item.file,
+                      folderId: currentFolderIdRef.current,
+                      folderName: breadcrumbsRef.current[breadcrumbsRef.current.length - 1]?.name || 'My Drive',
+                    });
+                  }
+                }
+                uploadQueue.enqueue(payload);
+              }
+            } catch (err) {
+              console.error('Overlay drop error:', err);
             }
           }}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-blue-900/60 backdrop-blur-sm animate-in fade-in duration-150 p-6 pointer-events-auto"
@@ -1799,18 +1848,34 @@ const Dashboard = () => {
               Drop files to upload
             </h2>
             <p className="mt-2 text-sm sm:text-base text-blue-100 font-medium">
-              Releasing will encrypt and upload to{' '}
+              Releasing will queue and encrypt files into{' '}
               <span className="font-bold underline text-white">
                 {breadcrumbs[breadcrumbs.length - 1]?.name || 'My Drive'}
               </span>
             </p>
             <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-xs text-blue-200 font-semibold border border-white/20">
               <ShieldCheck className="h-4 w-4 text-emerald-300" />
-              <span>AES-256-GCM Military Grade AEAD Encryption</span>
+              <span>AES-256-GCM (4-Worker Parallel Queue)</span>
             </div>
           </div>
         </div>
       )}
+
+      {/* Google Drive Style Floating Upload Manager Drawer */}
+      <UploadManagerDrawer />
+
+      {/* Bulk Generator & Stress Test Modal */}
+      <BulkGeneratorModal
+        isOpen={isBulkGeneratorOpen}
+        onClose={() => setIsBulkGeneratorOpen(false)}
+        currentFolderId={currentFolderId}
+        user={user}
+        onSuccess={(result) => {
+          addToast(result.message || 'Benchmark files generated successfully!', 'success');
+          fetchData();
+          refreshUser();
+        }}
+      />
     </div>
   );
 };

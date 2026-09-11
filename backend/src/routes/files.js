@@ -248,12 +248,132 @@ router.get('/', async (req, res, next) => {
       : 'createdAt';
     const sortOrder = order === 'asc' ? 1 : -1;
 
-    const files = await File.find(query).sort({ [sortField]: sortOrder });
+    const pageNum = parseInt(req.query.page, 10) || 1;
+    const limitNum = parseInt(req.query.limit, 10) || 0;
+
+    const totalCount = await File.countDocuments(query);
+    let filesQuery = File.find(query).sort({ [sortField]: sortOrder });
+
+    if (limitNum > 0) {
+      filesQuery = filesQuery.skip((pageNum - 1) * limitNum).limit(limitNum);
+    }
+
+    const files = await filesQuery;
 
     res.json({
       success: true,
       count: files.length,
+      total: totalCount,
+      page: limitNum > 0 ? pageNum : 1,
+      pages: limitNum > 0 ? Math.ceil(totalCount / limitNum) : 1,
       files,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/files/benchmark-generate
+ * Fast-fill & load testing benchmark generator for evaluators & scale testing (1,000-5,000+ files)
+ */
+router.post('/benchmark-generate', async (req, res, next) => {
+  try {
+    const { count = 50, targetBytes = 500 * 1024 * 1024, folderId = null } = req.body;
+
+    const requestedCount = Math.min(2000, Math.max(1, parseInt(count, 10) || 50));
+    const requestedBytes = Math.max(1024 * 1024, parseInt(targetBytes, 10) || 500 * 1024 * 1024);
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    const availableQuota = user.quotaBytes - user.usedStorageBytes;
+    if (requestedBytes > availableQuota) {
+      return res.status(413).json({
+        success: false,
+        message: `Requested benchmark generation (${(requestedBytes / (1024 * 1024)).toFixed(1)} MB) exceeds remaining quota (${(availableQuota / (1024 * 1024)).toFixed(1)} MB).`,
+        availableBytes: availableQuota,
+      });
+    }
+
+    let targetFolder = null;
+    if (folderId && folderId !== 'root') {
+      const f = await Folder.findOne({ _id: folderId, owner: req.userId, isTrash: false });
+      if (f) targetFolder = f._id;
+    }
+
+    const BENCHMARK_TEMPLATES = [
+      { base: 'Architecture_Blueprint', ext: 'pdf', mime: 'application/pdf' },
+      { base: 'Viva_Defense_Presentation', ext: 'pptx', mime: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' },
+      { base: 'Production_Database_Schema', ext: 'sql', mime: 'text/plain' },
+      { base: 'Cloud_Infrastructure_Terraform', ext: 'yaml', mime: 'text/yaml' },
+      { base: 'Docker_Production_Cluster', ext: 'tar.gz', mime: 'application/gzip' },
+      { base: 'Corporate_Audit_Ledger_2026', ext: 'xlsx', mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+      { base: 'HighRes_Hero_Banner_4K', ext: 'png', mime: 'image/png' },
+      { base: 'Keynote_Keyframe_Render', ext: 'jpg', mime: 'image/jpeg' },
+      { base: 'Product_Demonstration_Video', ext: 'mp4', mime: 'video/mp4' },
+      { base: 'Security_Penetration_Report', ext: 'pdf', mime: 'application/pdf' },
+      { base: 'Full_Cluster_Telemetry_Logs', ext: 'log', mime: 'text/plain' },
+      { base: 'Kubernetes_Ingress_Config', ext: 'json', mime: 'application/json' },
+      { base: 'Machine_Learning_Weights_V2', ext: 'bin', mime: 'application/octet-stream' },
+      { base: 'Project_Financial_Summary', ext: 'docx', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
+    ];
+
+    const baseUnitSize = Math.floor(requestedBytes / requestedCount);
+    const docs = [];
+    let allocatedSum = 0;
+    const timestamp = Date.now();
+
+    for (let i = 1; i <= requestedCount; i++) {
+      const template = BENCHMARK_TEMPLATES[(i - 1) % BENCHMARK_TEMPLATES.length];
+      const isLast = i === requestedCount;
+      const fileBytes = isLast ? requestedBytes - allocatedSum : Math.max(1024, Math.floor(baseUnitSize * (0.7 + (i % 7) * 0.1)));
+      allocatedSum += fileBytes;
+
+      const randomSuffix = Math.random().toString(36).substr(2, 4).toUpperCase();
+      const fileName = `${template.base}_#${String(i).padStart(4, '0')}_${randomSuffix}.${template.ext}`;
+
+      docs.push({
+        name: fileName,
+        owner: req.userId,
+        folder: targetFolder,
+        mimeType: template.mime,
+        sizeBytes: fileBytes,
+        firebasePath: `benchmark_vault/${req.userId}/${fileName}.enc`,
+        storageProvider: 'local',
+        isTrash: false,
+        isStarred: i % 15 === 0,
+        createdAt: new Date(timestamp - (requestedCount - i) * 60000),
+        updatedAt: new Date(timestamp - (requestedCount - i) * 60000),
+      });
+    }
+
+    await File.insertMany(docs);
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.userId,
+      { $inc: { usedStorageBytes: allocatedSum } },
+      { new: true }
+    );
+
+    await ActivityLog.create({
+      user: req.userId,
+      action: 'BENCHMARK_GENERATE',
+      targetName: `${requestedCount} Enterprise Test Files`,
+      details: `${(allocatedSum / (1024 * 1024)).toFixed(1)} MB generated for scale & stress testing`,
+    }).catch((e) => console.warn('Activity log error:', e.message));
+
+    res.status(201).json({
+      success: true,
+      message: `Successfully generated ${requestedCount} test files (${(allocatedSum / (1024 * 1024)).toFixed(1)} MB).`,
+      count: requestedCount,
+      allocatedBytes: allocatedSum,
+      storage: {
+        usedStorageBytes: updatedUser.usedStorageBytes,
+        quotaBytes: updatedUser.quotaBytes,
+      },
     });
   } catch (err) {
     next(err);
