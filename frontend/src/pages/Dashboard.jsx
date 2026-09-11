@@ -702,25 +702,29 @@ const Dashboard = () => {
       <Toast toasts={toasts} onDismiss={removeToast} />
 
       {/* Accessible DOM-rendered multi-file input (avoids mobile browsers dropping change events) */}
+      {/* Accessible DOM-rendered multi-file input (avoids mobile browsers dropping change events) */}
       <input
         ref={uploadInputRef}
         type="file"
         multiple
-        accept="*/*"
         onChange={(e) => {
-          const selectedFiles = Array.from(e.target.files || []);
-          if (selectedFiles.length > 0) {
-            addToast(`Preparing ${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''} for upload...`, 'info');
-            const payload = selectedFiles.map((file) => ({
-              file,
-              folderId: currentFolderIdRef.current,
-              folderName: breadcrumbsRef.current[breadcrumbsRef.current.length - 1]?.name || 'My Drive',
-            }));
-            uploadQueue.enqueue(payload);
-          }
-          e.target.value = '';
+          const filesList = e.target.files;
+          if (!filesList || filesList.length === 0) return;
+          const selectedFiles = Array.from(filesList);
+          addToast(`Received ${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''}. Starting upload...`, 'info');
+          const payload = selectedFiles.map((file) => ({
+            file,
+            folderId: currentFolderIdRef.current,
+            folderName: breadcrumbsRef.current[breadcrumbsRef.current.length - 1]?.name || 'My Drive',
+          }));
+          uploadQueue.enqueue(payload);
+          setTimeout(() => {
+            try {
+              if (e.target) e.target.value = '';
+            } catch (_) {}
+          }, 200);
         }}
-        className="sr-only opacity-0 absolute w-0 h-0 pointer-events-none"
+        className="fixed -top-full -left-full opacity-0 w-1 h-1 pointer-events-none"
         aria-hidden="true"
         tabIndex="-1"
       />
@@ -899,8 +903,8 @@ const Dashboard = () => {
               <div className="space-y-2 mb-5">
                 <button
                   onClick={() => {
-                    setIsMobileDrawerOpen(false);
                     uploadInputRef.current?.click();
+                    setTimeout(() => setIsMobileDrawerOpen(false), 200);
                   }}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 active:scale-95 text-white font-bold text-xs shadow-md shadow-blue-600/20"
                 >

@@ -130,6 +130,15 @@ const UploadManagerDrawer = () => {
               AES-256-GCM Ingestion
             </span>
             <div className="flex items-center gap-2">
+              {error > 0 && (
+                <button
+                  type="button"
+                  onClick={() => uploadQueue.retryFailed()}
+                  className="text-amber-600 hover:text-amber-700 font-bold hover:underline"
+                >
+                  Retry failed ({error})
+                </button>
+              )}
               {!isIdle && (
                 <button
                   type="button"

@@ -101,7 +101,7 @@ const UploadDropzone = ({
     if (selectedFiles && selectedFiles.length > 0) {
       const filesArray = Array.from(selectedFiles);
       if (onToast) {
-        onToast(`Preparing ${filesArray.length} file${filesArray.length > 1 ? 's' : ''} for upload...`, 'info');
+        onToast(`Received ${filesArray.length} file${filesArray.length > 1 ? 's' : ''}. Starting upload...`, 'info');
       }
       const payload = filesArray.map((file) => ({
         file,
@@ -110,7 +110,11 @@ const UploadDropzone = ({
       }));
       uploadQueue.enqueue(payload);
     }
-    e.target.value = '';
+    setTimeout(() => {
+      try {
+        if (e.target) e.target.value = '';
+      } catch (_) {}
+    }, 200);
   };
 
   // Handle native folder selection (webkitdirectory)
@@ -148,23 +152,15 @@ const UploadDropzone = ({
     }
 
     uploadQueue.enqueue(uploadPayload);
-    e.target.value = '';
+    setTimeout(() => {
+      try {
+        if (e.target) e.target.value = '';
+      } catch (_) {}
+    }, 200);
   };
 
   return (
     <div className="space-y-3">
-      {/* Accessible Multi-file input (avoids mobile browser dropping change events) */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        accept="*/*"
-        onChange={handleFileSelect}
-        className="sr-only opacity-0 absolute w-0 h-0 pointer-events-none"
-        aria-hidden="true"
-        tabIndex="-1"
-      />
-
       {/* Accessible Folder input with webkitdirectory */}
       <input
         ref={folderInputRef}
@@ -173,7 +169,7 @@ const UploadDropzone = ({
         directory=""
         multiple
         onChange={handleFolderSelect}
-        className="sr-only opacity-0 absolute w-0 h-0 pointer-events-none"
+        className="fixed -top-full -left-full opacity-0 w-1 h-1 pointer-events-none"
         aria-hidden="true"
         tabIndex="-1"
       />
@@ -226,15 +222,24 @@ const UploadDropzone = ({
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-          className={`group relative rounded-xl border-2 border-dashed transition-all cursor-pointer p-6 sm:p-8 flex flex-col items-center justify-center text-center select-none ${
+          className={`group relative rounded-xl border-2 border-dashed transition-all cursor-pointer p-6 sm:p-8 flex flex-col items-center justify-center text-center select-none overflow-hidden ${
             isDragOver
               ? 'border-blue-500 bg-blue-50/90 scale-[1.01] shadow-inner ring-4 ring-blue-500/10'
               : 'border-gray-200 hover:border-blue-400 bg-gray-50/60 hover:bg-blue-50/30'
           }`}
         >
+          {/* Transparent full-coverage native input: receives direct user tap on mobile & desktop */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            onChange={handleFileSelect}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+            title="Choose files from device"
+          />
+
           <div
-            className={`flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl transition-transform duration-200 mb-3 ${
+            className={`flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl transition-transform duration-200 mb-3 pointer-events-none ${
               isDragOver
                 ? 'bg-blue-600 text-white scale-110 shadow-lg shadow-blue-500/30'
                 : 'bg-blue-100/80 text-blue-600 group-hover:scale-105 group-hover:bg-blue-600 group-hover:text-white'
@@ -244,16 +249,16 @@ const UploadDropzone = ({
           </div>
 
           {isDragOver ? (
-            <div className="space-y-1 animate-in zoom-in-95 duration-100">
+            <div className="space-y-1 animate-in zoom-in-95 duration-100 pointer-events-none">
               <p className="text-sm sm:text-base font-bold text-blue-600">
                 Drop files or folders to upload to {currentFolderName}
               </p>
               <p className="text-xs text-blue-500 font-semibold">
-                Releasing will queue and encrypt files with 4-worker concurrency
+                Releasing will queue and encrypt files with enterprise concurrency
               </p>
             </div>
           ) : (
-            <div className="space-y-1">
+            <div className="space-y-1 pointer-events-none">
               <p className="text-xs sm:text-sm font-bold text-gray-800 group-hover:text-blue-600 transition-colors">
                 Drag and drop files or folders here, or{' '}
                 <span className="text-blue-600 underline underline-offset-2">
@@ -261,7 +266,7 @@ const UploadDropzone = ({
                 </span>
               </p>
               <p className="text-[11px] sm:text-xs text-gray-400 font-medium">
-                Supports batch uploads up to 5,000+ files with subfolder preservation (up to 100 MB per file)
+                Supports batch uploads up to 500+ files from photo library & device (up to 100 MB per file)
               </p>
             </div>
           )}

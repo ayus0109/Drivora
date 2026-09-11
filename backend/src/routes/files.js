@@ -148,18 +148,47 @@ router.get('/:id/download', async (req, res, next) => {
       });
     }
 
-    const { stream, size, mimeType, filename } =
+    const { stream, buffer, size, mimeType, filename } =
       await storageService.getFileDownloadStream(file);
 
     const isInline = req.query.inline === 'true' || req.query.preview === 'true';
     const dispositionType = isInline ? 'inline' : 'attachment';
 
-    res.setHeader('Content-Type', mimeType);
-    res.setHeader('Content-Length', size);
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader(
+      'Cache-Control',
+      isInline ? 'private, max-age=86400, immutable' : 'no-cache'
+    );
     res.setHeader(
       'Content-Disposition',
       `${dispositionType}; filename="${encodeURIComponent(filename)}"`
     );
+
+    // Support HTTP Range requests (crucial for instant video/audio playback and scrubbing)
+    const rangeHeader = req.headers.range;
+    if (rangeHeader && buffer) {
+      const parts = rangeHeader.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : size - 1;
+
+      if (start >= size || end >= size || start > end) {
+        res.setHeader('Content-Range', `bytes */${size}`);
+        return res.status(416).end();
+      }
+
+      const chunkSize = end - start + 1;
+      const slicedBuffer = buffer.subarray(start, end + 1);
+
+      res.status(206);
+      res.setHeader('Content-Range', `bytes ${start}-${end}/${size}`);
+      res.setHeader('Content-Length', chunkSize);
+      res.setHeader('Content-Type', mimeType);
+
+      return res.end(slicedBuffer);
+    }
+
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Length', size);
 
     stream.on('error', (streamErr) => {
       console.error('Download stream error:', streamErr);

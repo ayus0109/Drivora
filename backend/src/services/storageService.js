@@ -134,6 +134,7 @@ async function getFileDownloadStream(fileDoc) {
 
     return {
       stream,
+      buffer: decryptedBuffer,
       size: decryptedBuffer.length,
       mimeType: fileDoc.mimeType,
       filename: fileDoc.name,
@@ -152,6 +153,7 @@ async function getFileDownloadStream(fileDoc) {
 
   return {
     stream,
+    buffer: decryptedBuffer,
     size: decryptedBuffer.length,
     mimeType: fileDoc.mimeType,
     filename: fileDoc.name,

@@ -165,7 +165,6 @@ class UploadQueue {
       }
 
       const res = await api.post('/files/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (progressEvent) => {
           if (progressEvent.total) {
             const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -185,6 +184,18 @@ class UploadQueue {
         this.triggerSync();
       }
     } catch (err) {
+      // Automatic retry for transient mobile network/cellular socket drops (up to 2 retries)
+      item.retries = (item.retries || 0) + 1;
+      const isQuotaError = err.response?.status === 413 || err.response?.data?.message?.toLowerCase().includes('quota');
+      if (item.retries <= 2 && !isQuotaError) {
+        item.status = 'queued';
+        item.progress = 0;
+        this.activeCount = Math.max(0, this.activeCount - 1);
+        this.notify(true);
+        setTimeout(() => this.processQueue(), 400 * item.retries);
+        return;
+      }
+
       item.status = 'error';
       item.error = err.response?.data?.message || err.message || 'Upload failed';
     } finally {
@@ -192,6 +203,25 @@ class UploadQueue {
       this.notify(true);
       this.processQueue();
     }
+  }
+
+  // Retry all failed uploads (Zero Data Loss)
+  retryFailed() {
+    let reQueuedCount = 0;
+    for (const item of this.queue) {
+      if (item.status === 'error' && item.error !== 'Cancelled') {
+        item.status = 'queued';
+        item.progress = 0;
+        item.error = null;
+        item.retries = 0;
+        reQueuedCount += 1;
+      }
+    }
+    if (reQueuedCount > 0) {
+      this.notify(true);
+      this.processQueue();
+    }
+    return reQueuedCount;
   }
 
   triggerSync() {

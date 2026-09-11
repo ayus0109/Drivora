@@ -17,31 +17,64 @@ import api from '../api/axios';
 import { getFileIcon } from '../utils/fileIcons';
 import { formatBytes, formatDate } from '../utils/formatBytes';
 
+// Session cache for decrypted preview blobs to enable instantaneous re-opening
+const previewBlobCache = new Map();
+
 const FilePreviewModal = ({ file, isOpen, onClose, onDownload, onShare, initialTab = 'preview' }) => {
   const [activeTab, setActiveTab] = useState(initialTab); // 'preview' | 'details'
   const [blobUrl, setBlobUrl] = useState(null);
   const [textContent, setTextContent] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState(null);
+  const [isOriginalScale, setIsOriginalScale] = useState(false);
 
   useEffect(() => {
     setActiveTab(initialTab);
+    setIsOriginalScale(false);
   }, [initialTab, file]);
+
+  const directStreamUrl = file
+    ? `/api/files/${file._id}/download?inline=true&token=${encodeURIComponent(localStorage.getItem('token') || '')}`
+    : '';
 
   // Load preview stream when file or modal opens
   useEffect(() => {
     if (!isOpen || !file) {
-      if (blobUrl) {
-        window.URL.revokeObjectURL(blobUrl);
-        setBlobUrl(null);
-      }
       setTextContent('');
       setLoadError(null);
       return;
     }
 
+    const mime = (file.mimeType || '').toLowerCase();
+    const name = (file.name || '').toLowerCase();
+    const isMediaOrPdf =
+      mime.startsWith('video/') ||
+      mime.startsWith('audio/') ||
+      mime.includes('pdf') ||
+      name.endsWith('.mp4') ||
+      name.endsWith('.webm') ||
+      name.endsWith('.mp3') ||
+      name.endsWith('.wav') ||
+      name.endsWith('.pdf');
+
+    // Video, audio, and PDF can stream directly via native Range requests without waiting for full blob download
+    if (isMediaOrPdf) {
+      setIsLoading(false);
+      setLoadError(null);
+      return;
+    }
+
+    // Check session blob cache for instant (0ms) image/text loading
+    if (previewBlobCache.has(file._id)) {
+      const cached = previewBlobCache.get(file._id);
+      setBlobUrl(cached.url);
+      if (cached.text) setTextContent(cached.text);
+      setIsLoading(false);
+      setLoadError(null);
+      return;
+    }
+
     let isMounted = true;
-    let createdUrl = null;
 
     const fetchPreview = async () => {
       try {
@@ -53,9 +86,6 @@ const FilePreviewModal = ({ file, isOpen, onClose, onDownload, onShare, initialT
         });
 
         if (!isMounted) return;
-
-        const mime = file.mimeType || '';
-        const name = (file.name || '').toLowerCase();
 
         // If text or code, read as text
         const isText =
@@ -73,12 +103,15 @@ const FilePreviewModal = ({ file, isOpen, onClose, onDownload, onShare, initialT
           name.endsWith('.csv') ||
           name.endsWith('.log');
 
+        let text = '';
         if (isText) {
-          const text = await response.data.text();
+          text = await response.data.text();
           if (isMounted) setTextContent(text);
         }
 
-        createdUrl = window.URL.createObjectURL(response.data);
+        const createdUrl = window.URL.createObjectURL(response.data);
+        previewBlobCache.set(file._id, { url: createdUrl, text });
+
         if (isMounted) {
           setBlobUrl(createdUrl);
         }
@@ -100,9 +133,6 @@ const FilePreviewModal = ({ file, isOpen, onClose, onDownload, onShare, initialT
 
     return () => {
       isMounted = false;
-      if (createdUrl) {
-        window.URL.revokeObjectURL(createdUrl);
-      }
     };
   }, [isOpen, file]);
 
@@ -347,43 +377,62 @@ const FilePreviewModal = ({ file, isOpen, onClose, onDownload, onShare, initialT
               <span>Download Directly Instead</span>
             </button>
           </div>
-        ) : isPdf && blobUrl ? (
-          /* PDF VIEWER */
+        ) : isPdf ? (
+          /* PDF VIEWER - Streams immediately */
           <div className="w-full h-full max-w-6xl max-h-[92vh] rounded-xl overflow-hidden border border-gray-800 shadow-2xl bg-gray-900">
             <iframe
-              src={blobUrl}
+              src={directStreamUrl}
               title={file.name}
               className="w-full h-full border-0 bg-white"
             />
           </div>
         ) : isImage && blobUrl ? (
-          /* IMAGE VIEWER */
-          <div className="w-full h-full flex items-center justify-center p-2">
+          /* IMAGE VIEWER WITH ORIGINAL QUALITY TOGGLE */
+          <div className="relative w-full h-full flex items-center justify-center p-2 overflow-auto">
+            <div className="absolute top-3 right-3 z-20 flex items-center gap-2 bg-gray-900/80 backdrop-blur-sm px-2.5 py-1.5 rounded-xl border border-gray-800 text-xs text-gray-300">
+              <button
+                type="button"
+                onClick={() => setIsOriginalScale(!isOriginalScale)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-white font-semibold transition-colors"
+                title="Toggle 100% original quality scale"
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+                <span>{isOriginalScale ? 'Fit to Screen' : '100% Quality'}</span>
+              </button>
+            </div>
             <img
               src={blobUrl}
               alt={file.name}
-              className="max-h-[85vh] max-w-full object-contain rounded-xl shadow-2xl border border-gray-800"
+              loading="eager"
+              decoding="async"
+              className={`rounded-xl shadow-2xl transition-all duration-200 border border-gray-800 ${
+                isOriginalScale
+                  ? 'max-h-none max-w-none'
+                  : 'max-h-[85vh] max-w-full object-contain'
+              }`}
             />
           </div>
-        ) : isVideo && blobUrl ? (
-          /* VIDEO PLAYER */
+        ) : isVideo ? (
+          /* VIDEO PLAYER - Streams via HTTP Range requests immediately */
           <div className="w-full max-w-4xl flex items-center justify-center">
             <video
               controls
               autoPlay
-              src={blobUrl}
+              playsInline
+              preload="metadata"
+              src={directStreamUrl}
               className="max-h-[80vh] w-full rounded-2xl shadow-2xl border border-gray-800 bg-black"
             />
           </div>
-        ) : isAudio && blobUrl ? (
-          /* AUDIO PLAYER */
+        ) : isAudio ? (
+          /* AUDIO PLAYER - Streams via HTTP Range requests immediately */
           <div className="w-full max-w-md p-8 rounded-2xl bg-gray-900 border border-gray-800 shadow-2xl text-center">
             <div className="p-4 rounded-2xl bg-blue-600/10 text-blue-400 w-16 h-16 mx-auto flex items-center justify-center mb-4">
               {icon}
             </div>
             <h3 className="text-base font-bold text-white truncate mb-1">{file.name}</h3>
             <p className="text-xs text-gray-400 mb-6">{formatBytes(file.sizeBytes)}</p>
-            <audio controls src={blobUrl} className="w-full" autoPlay />
+            <audio controls src={directStreamUrl} className="w-full" autoPlay preload="metadata" />
           </div>
         ) : isText ? (
           /* TEXT / CODE VIEWER */
