@@ -5,11 +5,8 @@ import {
   ArrowRight,
   ShieldCheck,
   ChevronRight,
-  ChevronDown,
   AlertCircle,
   Loader2,
-  Eye,
-  EyeOff,
   Trash2,
 } from 'lucide-react';
 
@@ -37,15 +34,12 @@ const GoogleLogo = ({ className = 'h-5 w-5' }) => (
 const STORAGE_KEY = 'drivora_device_accounts';
 
 const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
-  // Device-isolated accounts: read exclusively from this browser/device's localStorage
   const [deviceAccounts, setDeviceAccounts] = useState([]);
-  const [view, setView] = useState('email'); // 'picker' | 'email' | 'password'
+  const [view, setView] = useState('email'); // 'picker' | 'email'
   const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [signingInEmail, setSigningInEmail] = useState('');
 
   // Initialize state from local device storage whenever modal opens
   useEffect(() => {
@@ -68,22 +62,18 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
         if (valid.length > 0) {
           setDeviceAccounts(valid);
           setView('picker');
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(valid));
         } else {
           setDeviceAccounts([]);
           setView('email');
-          localStorage.removeItem(STORAGE_KEY);
         }
       } catch (e) {
         setDeviceAccounts([]);
         setView('email');
       }
       setEmail('');
-      setName('');
-      setPassword('');
-      setShowPassword(false);
       setError('');
       setIsSubmitting(false);
+      setSigningInEmail('');
     }
   }, [isOpen]);
 
@@ -113,7 +103,7 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
       );
       const updated = [
         {
-          email: accountData.email,
+          email: accountData.email.toLowerCase(),
           name: accountData.name || accountData.email.split('@')[0],
           avatar:
             accountData.avatar ||
@@ -122,7 +112,7 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
             )}&background=2563eb&color=fff&bold=true`,
         },
         ...filtered,
-      ].slice(0, 5); // Remember up to 5 profiles on this device
+      ].slice(0, 5);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       setDeviceAccounts(updated);
     } catch (err) {
@@ -130,17 +120,41 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
     }
   };
 
-  // Handle picking a saved account from this device
-  const handleSelectDeviceAccount = (acc) => {
-    setEmail(acc.email);
-    setName(acc.name || '');
-    setPassword('');
+  // 1-Click login when clicking an existing account from this device
+  const handleSelectDeviceAccount = async (acc) => {
+    if (isSubmitting) return;
     setError('');
-    setView('password');
+    setIsSubmitting(true);
+    setSigningInEmail(acc.email);
+
+    try {
+      const userPayload = {
+        email: acc.email.trim().toLowerCase(),
+        name: acc.name || acc.email.split('@')[0],
+        avatar:
+          acc.avatar ||
+          `https://ui-avatars.com/api/?name=${encodeURIComponent(
+            acc.name || acc.email
+          )}&background=2563eb&color=fff&bold=true`,
+        googleId: `google_oauth_${acc.email.replace(/[^a-zA-Z0-9]/g, '_')}`,
+      };
+
+      const result = await onGoogleLogin(userPayload);
+      saveAccountToDevice(result || userPayload);
+      onClose();
+    } catch (err) {
+      console.error('Google sign-in error:', err);
+      const backendMessage =
+        err.response?.data?.message || 'Google sign-in failed. Please try again.';
+      setError(backendMessage);
+    } finally {
+      setIsSubmitting(false);
+      setSigningInEmail('');
+    }
   };
 
-  // Step 1: Submit Email
-  const handleEmailSubmit = (e) => {
+  // 1-Click login when entering a Google email
+  const handleEmailSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -152,48 +166,26 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmed)) {
-      setError('Couldn’t find your Google Account. Please enter a valid email.');
-      return;
-    }
-
-    setEmail(trimmed);
-    const derivedName =
-      name.trim() ||
-      trimmed
-        .split('@')[0]
-        .replace(/[._-]/g, ' ')
-        .replace(/\b\w/g, (c) => c.toUpperCase());
-    setName(derivedName);
-    setPassword('');
-    setView('password');
-  };
-
-  // Step 2: Submit Password and Authenticate
-  const handlePasswordSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    if (!password) {
-      setError('Please enter your password.');
-      return;
-    }
-
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+      setError('Please enter a valid Google email address.');
       return;
     }
 
     setIsSubmitting(true);
+    setSigningInEmail(trimmed);
 
     try {
+      const derivedName = trimmed
+        .split('@')[0]
+        .replace(/[._-]/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+
       const userPayload = {
-        email: email.trim().toLowerCase(),
-        password,
-        name: name || email.split('@')[0],
+        email: trimmed,
+        name: derivedName,
         avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(
-          name || email
+          derivedName
         )}&background=2563eb&color=fff&bold=true`,
-        googleId: `google_oauth_${email.replace(/[^a-zA-Z0-9]/g, '_')}`,
+        googleId: `google_oauth_${trimmed.replace(/[^a-zA-Z0-9]/g, '_')}`,
       };
 
       const result = await onGoogleLogin(userPayload);
@@ -202,10 +194,11 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
     } catch (err) {
       console.error('Google sign-in error:', err);
       const backendMessage =
-        err.response?.data?.message ||
-        'Authentication failed. Please verify your password.';
+        err.response?.data?.message || 'Google sign-in failed. Please try again.';
       setError(backendMessage);
+    } finally {
       setIsSubmitting(false);
+      setSigningInEmail('');
     }
   };
 
@@ -248,7 +241,7 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
           </p>
         </div>
 
-        {/* Security / Error Message Banner */}
+        {/* Error Message Banner */}
         {error && (
           <div className="mb-4 flex items-start gap-2.5 rounded-xl bg-red-50 p-3 text-xs text-red-700 border border-red-200 animate-in fade-in">
             <AlertCircle className="h-4 w-4 flex-shrink-0 text-red-500 mt-0.5" />
@@ -256,68 +249,72 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
           </div>
         )}
 
-        {/* VIEW 1: DEVICE-SAVED ACCOUNTS PICKER */}
+        {/* VIEW 1: DEVICE-SAVED ACCOUNTS PICKER (1-Click selection) */}
         {view === 'picker' && (
           <div className="space-y-3 animate-in fade-in">
             <div className="flex items-center justify-between px-1">
               <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">
-                Accounts on this device
+                Choose an account
               </span>
               <span className="text-[10px] text-gray-400 font-medium">
-                Device isolated
+                1-Click Sign In
               </span>
             </div>
 
             <div className="divide-y divide-gray-100 rounded-2xl border border-gray-200/80 overflow-hidden bg-white shadow-2xs">
-              {deviceAccounts.map((acc) => (
-                <div
-                  key={acc.email}
-                  onClick={() => handleSelectDeviceAccount(acc)}
-                  className="w-full flex items-center justify-between p-3.5 hover:bg-gray-50/90 active:bg-gray-100 transition-colors text-left cursor-pointer group"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs flex-shrink-0">
-                      {getInitials(acc.name, acc.email)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+              {deviceAccounts.map((acc) => {
+                const isSigningInThis = isSubmitting && signingInEmail === acc.email;
+                return (
+                  <div
+                    key={acc.email}
+                    onClick={() => handleSelectDeviceAccount(acc)}
+                    className="w-full flex items-center justify-between p-3.5 hover:bg-gray-50/90 active:bg-gray-100 transition-colors text-left cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs flex-shrink-0">
+                        {getInitials(acc.name, acc.email)}
+                      </div>
+                      <div className="min-w-0 flex-1">
                         <p className="text-xs sm:text-sm font-bold text-gray-900 truncate">
                           {acc.name || acc.email}
                         </p>
-                        <span className="px-1.5 py-0.5 rounded-md bg-gray-100 text-[10px] font-medium text-gray-500 border border-gray-200">
-                          {acc.status || 'Signed out'}
-                        </span>
+                        <p className="text-xs text-gray-500 truncate mt-0.5">
+                          {acc.email}
+                        </p>
                       </div>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">
-                        {acc.email}
-                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0 pl-2">
+                      {isSigningInThis ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={(e) => handleRemoveAccount(acc.email, e)}
+                            title="Remove account from this device"
+                            className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-60 hover:opacity-100"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                          <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+                        </>
+                      )}
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-1.5 flex-shrink-0 pl-2">
-                    {/* Remove account from this device button */}
-                    <button
-                      type="button"
-                      onClick={(e) => handleRemoveAccount(acc.email, e)}
-                      title="Remove account from this device"
-                      className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                    <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-500 transition-colors" />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
 
               {/* Use Another Account */}
               <button
+                type="button"
+                disabled={isSubmitting}
                 onClick={() => {
                   setError('');
                   setEmail('');
-                  setPassword('');
                   setView('email');
                 }}
-                className="w-full flex items-center gap-3 p-3.5 hover:bg-gray-50/90 active:bg-gray-100 transition-colors text-left text-gray-700 group font-semibold text-xs"
+                className="w-full flex items-center gap-3 p-3.5 hover:bg-gray-50/90 active:bg-gray-100 transition-colors text-left text-gray-700 group font-semibold text-xs disabled:opacity-50"
               >
                 <div className="h-9 w-9 rounded-full bg-gray-100 border border-dashed border-gray-300 text-gray-500 flex items-center justify-center flex-shrink-0 group-hover:border-blue-500 group-hover:text-blue-600 transition-colors">
                   <User className="h-4 w-4" />
@@ -342,7 +339,7 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-bold text-gray-700">
-                  Email or phone
+                  Google Email address
                 </label>
                 {deviceAccounts.length > 0 && (
                   <button
@@ -353,7 +350,7 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
                     }}
                     className="text-xs font-semibold text-blue-600 hover:underline"
                   >
-                    ← Saved accounts
+                    ← Choose saved account
                   </button>
                 )}
               </div>
@@ -368,106 +365,30 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
                   setEmail(e.target.value);
                   setError('');
                 }}
-                placeholder="Email or phone"
+                placeholder="Enter your Google email"
                 className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 text-xs sm:text-sm text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
               />
               <p className="mt-1.5 text-[11px] text-gray-400">
-                Enter your Google account to access your isolated 15 GB storage.
-              </p>
-            </div>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                type="submit"
-                className="flex items-center justify-center gap-2 py-2 px-5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold text-xs sm:text-sm shadow-md shadow-blue-600/25 transition-all"
-              >
-                <span>Next</span>
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* VIEW 3: ENTER PASSWORD & IDENTITY VERIFICATION */}
-        {view === 'password' && (
-          <form onSubmit={handlePasswordSubmit} className="space-y-4 animate-in fade-in">
-            {/* Account Pill with Avatar & Change Link */}
-            <div className="flex justify-center mb-2">
-              <div
-                onClick={() => {
-                  setError('');
-                  setPassword('');
-                  setView(deviceAccounts.length > 0 ? 'picker' : 'email');
-                }}
-                role="button"
-                tabIndex={0}
-                title="Click to switch account"
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-gray-200 bg-gray-50 hover:bg-gray-100 text-xs font-medium text-gray-700 cursor-pointer transition-colors max-w-full group"
-              >
-                <div className="h-5 w-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
-                  {getInitials(name, email)}
-                </div>
-                <span className="font-semibold text-gray-800 truncate max-w-[200px]">
-                  {email}
-                </span>
-                <ChevronDown className="h-3.5 w-3.5 text-gray-400 group-hover:text-gray-600 transition-colors shrink-0" />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold text-gray-700">
-                  Enter your password
-                </label>
-                <span className="text-[10px] text-gray-400 font-medium">
-                  Identity Verification
-                </span>
-              </div>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  name="password"
-                  required
-                  autoFocus
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setError('');
-                  }}
-                  placeholder="Account password"
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 pr-10 text-xs sm:text-sm text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-              <p className="mt-1.5 text-[11px] text-gray-400">
-                To protect your files, verify your identity or set your account password.
+                1-click sign in. Fast, secure, and authenticated directly via Google SSO.
               </p>
             </div>
 
             <div className="pt-2 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => {
-                  setError('');
-                  setPassword('');
-                  setView(deviceAccounts.length > 0 ? 'picker' : 'email');
-                }}
-                disabled={isSubmitting}
-                className="text-xs font-bold text-gray-500 hover:text-gray-800 transition-colors disabled:opacity-50"
-              >
-                Back
-              </button>
+              {deviceAccounts.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError('');
+                    setView('picker');
+                  }}
+                  disabled={isSubmitting}
+                  className="text-xs font-bold text-gray-500 hover:text-gray-800 transition-colors"
+                >
+                  Back
+                </button>
+              ) : (
+                <div />
+              )}
 
               <button
                 type="submit"
@@ -477,11 +398,11 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Verifying...</span>
+                    <span>Signing in...</span>
                   </>
                 ) : (
                   <>
-                    <span>Sign In</span>
+                    <span>Continue with Google</span>
                     <ArrowRight className="h-4 w-4" />
                   </>
                 )}
@@ -492,13 +413,13 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
 
         {/* Security & Isolation Footer */}
         <div className="mt-6 pt-4 border-t border-gray-100">
-          <div className="flex items-center justify-center gap-1.5 text-[11px] text-emerald-700 font-semibold mb-2">
+          <div className="flex items-center justify-center gap-1.5 text-[11px] text-emerald-700 font-semibold mb-1">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
             <span>End-to-End Isolated Cloud Storage • 15 GB Free Quota</span>
           </div>
           <p className="text-[10px] text-center text-gray-400 leading-relaxed">
             Your files and profile are strictly private. Devices only access data
-            belonging to the verified signed-in account.
+            belonging to your signed-in account.
           </p>
         </div>
       </div>

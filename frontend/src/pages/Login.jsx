@@ -1,8 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { HardDrive, Eye, EyeOff, AlertCircle, ShieldAlert, X, Check } from 'lucide-react';
+import {
+  HardDrive,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  ShieldAlert,
+  X,
+  CheckCircle2,
+} from 'lucide-react';
 import GoogleSignInModal from '../components/GoogleSignInModal';
+import ForgotPasswordModal from '../components/ForgotPasswordModal';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -11,8 +20,10 @@ const Login = () => {
   const [hasUserTyped, setHasUserTyped] = useState(false);
   const [privacyNotice, setPrivacyNotice] = useState('');
   const [error, setError] = useState('');
+  const [successBanner, setSuccessBanner] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
 
   const hideTimerRef = useRef(null);
   const passwordInputRef = useRef(null);
@@ -23,7 +34,7 @@ const Login = () => {
 
   const [recentAccount, setRecentAccount] = useState(null);
 
-  // Reset form inputs completely on mount or when logging out
+  // Reset form inputs completely on mount or when location changes
   useEffect(() => {
     setEmail('');
     setPassword('');
@@ -83,7 +94,6 @@ const Login = () => {
   };
 
   const handleKeyDown = () => {
-    // Confirms user is manually typing with keyboard/touchpad
     setHasUserTyped(true);
     setPrivacyNotice('');
   };
@@ -91,9 +101,6 @@ const Login = () => {
   const handleTogglePassword = (e) => {
     e.preventDefault();
 
-    // Security & Privacy Safeguard:
-    // If the password was populated via browser autofill and not typed in this session,
-    // prevent exposing the secret to shoulder-surfers or unauthorized phone holders.
     if (!hasUserTyped && password) {
       setPrivacyNotice(
         '🔒 Privacy Protection: Autofilled passwords cannot be unmasked to protect your credentials from unauthorized viewing. Type your password manually to inspect it.'
@@ -105,7 +112,6 @@ const Login = () => {
     const nextState = !showPassword;
     setShowPassword(nextState);
 
-    // Auto-mask after 3 seconds for privacy
     if (nextState) {
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       hideTimerRef.current = setTimeout(() => {
@@ -127,6 +133,7 @@ const Login = () => {
     e.preventDefault();
     setError('');
     setPrivacyNotice('');
+    setSuccessBanner('');
 
     if (!email || !password) {
       setError('Please fill in both email and password.');
@@ -154,6 +161,16 @@ const Login = () => {
     return userData;
   };
 
+  const handleResetSuccess = (resetEmail) => {
+    setEmail(resetEmail);
+    setPassword('');
+    setSuccessBanner('Password reset successfully! Please sign in with your new password.');
+    setError('');
+    setTimeout(() => {
+      passwordInputRef.current?.focus();
+    }, 100);
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#f8fafc] px-4 py-12 sm:px-6 lg:px-8 font-['Plus_Jakarta_Sans',sans-serif]">
       <div className="w-full max-w-md space-y-6 rounded-3xl bg-white p-6 sm:p-8 shadow-xl shadow-slate-200/50 border border-gray-100">
@@ -169,7 +186,7 @@ const Login = () => {
           </p>
         </div>
 
-        {/* Google SSO Button */}
+        {/* Google SSO Button (1-Click) */}
         <button
           type="button"
           onClick={() => setIsGoogleModalOpen(true)}
@@ -196,7 +213,7 @@ const Login = () => {
           <span>Continue with Google</span>
         </button>
 
-        {/* Recent Account on This Device (Signed-out Profile) */}
+        {/* Recent Account on This Device */}
         {recentAccount && !email && (
           <div
             onClick={() => {
@@ -211,14 +228,9 @@ const Login = () => {
                 {(recentAccount.name || recentAccount.email)[0].toUpperCase()}
               </div>
               <div className="min-w-0 text-left">
-                <div className="flex items-center gap-1.5">
-                  <p className="text-xs font-bold text-gray-900 truncate">
-                    {recentAccount.name || recentAccount.email}
-                  </p>
-                  <span className="px-1.5 py-0.2 rounded-sm bg-gray-100 text-[9px] font-medium text-gray-500 border border-gray-200">
-                    Signed out
-                  </span>
-                </div>
+                <p className="text-xs font-bold text-gray-900 truncate">
+                  {recentAccount.name || recentAccount.email}
+                </p>
                 <p className="text-[11px] text-gray-500 truncate">
                   {recentAccount.email}
                 </p>
@@ -242,6 +254,19 @@ const Login = () => {
           <div className="flex items-start gap-3 rounded-xl bg-red-50 p-3.5 text-xs sm:text-sm text-red-700 border border-red-200/80 animate-in fade-in">
             <AlertCircle className="h-5 w-5 flex-shrink-0 text-red-500" />
             <span>{error}</span>
+          </div>
+        )}
+
+        {successBanner && (
+          <div className="flex items-start gap-3 rounded-xl bg-emerald-50 p-3.5 text-xs sm:text-sm text-emerald-800 border border-emerald-200/80 animate-in fade-in">
+            <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-600" />
+            <div className="flex-1">{successBanner}</div>
+            <button
+              onClick={() => setSuccessBanner('')}
+              className="text-emerald-500 hover:text-emerald-800 p-0.5"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           </div>
         )}
 
@@ -275,17 +300,26 @@ const Login = () => {
             />
           </div>
 
-          {/* Password field with privacy safeguards */}
+          {/* Password field with Forgot Password link */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-xs font-bold text-gray-700">
                 Password
               </label>
-              {hasUserTyped && showPassword && (
-                <span className="text-[10px] text-blue-600 font-semibold animate-pulse">
-                  Auto-masks in 3s
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {hasUserTyped && showPassword && (
+                  <span className="text-[10px] text-blue-600 font-semibold animate-pulse">
+                    Auto-masks in 3s
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsForgotModalOpen(true)}
+                  className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
             </div>
 
             <div className="relative">
@@ -303,7 +337,6 @@ const Login = () => {
               />
 
               <div className="absolute inset-y-0 right-0 flex items-center pr-2.5 gap-1">
-                {/* Clear button if input has characters */}
                 {password && (
                   <button
                     type="button"
@@ -315,7 +348,6 @@ const Login = () => {
                   </button>
                 )}
 
-                {/* Show/Hide Eye Toggle */}
                 <button
                   type="button"
                   onClick={handleTogglePassword}
@@ -366,11 +398,19 @@ const Login = () => {
         </div>
       </div>
 
-      {/* Interactive Google SSO Modal */}
+      {/* Interactive Google SSO Modal (1-Click) */}
       <GoogleSignInModal
         isOpen={isGoogleModalOpen}
         onClose={() => setIsGoogleModalOpen(false)}
         onGoogleLogin={handleGoogleLogin}
+      />
+
+      {/* Forgot Password OTP Recovery Modal */}
+      <ForgotPasswordModal
+        isOpen={isForgotModalOpen}
+        onClose={() => setIsForgotModalOpen(false)}
+        initialEmail={email || recentAccount?.email || ''}
+        onSuccess={handleResetSuccess}
       />
     </div>
   );

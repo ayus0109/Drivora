@@ -80,6 +80,23 @@ export const AuthProvider = ({ children }) => {
     return userData;
   };
 
+  const verifySignupOtp = async (email, code, password, name) => {
+    const res = await api.post('/auth/verify-signup-otp', {
+      email,
+      code,
+      password,
+      name,
+    });
+    const { token: newToken, user: userData } = res.data;
+
+    localStorage.setItem('token', newToken);
+    localStorage.setItem('user', JSON.stringify(userData));
+
+    setToken(newToken);
+    setUser(userData);
+    return userData;
+  };
+
   const loginWithGoogle = async (googlePayload) => {
     const res = await api.post('/auth/google', googlePayload);
     const { token: newToken, user: userData } = res.data;
@@ -120,7 +137,6 @@ export const AuthProvider = ({ children }) => {
               `https://ui-avatars.com/api/?name=${encodeURIComponent(
                 user.name || user.email
               )}&background=2563eb&color=fff&bold=true`,
-            status: 'Signed out',
             lastLogout: Date.now(),
           },
           ...cleaned,
@@ -172,6 +188,7 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated: !!token,
         login,
         signup,
+        verifySignupOtp,
         loginWithGoogle,
         logout,
         refreshUser,
