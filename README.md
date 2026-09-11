@@ -1,8 +1,6 @@
-# Google Drive — Encrypted Cloud Storage System
+# Drivora — Encrypted Cloud Storage System
 
 A modern, production-grade cloud storage platform built with React, Node.js, Express, MongoDB Atlas, and AES-256-GCM authenticated encryption at rest. Featuring 15 GB free storage quota, Google Single Sign-On (SSO), in-browser file previewing, and public sharing links.
-
-![Google Drive Banner](https://ssl.gstatic.com/docs/doclist/images/drive_2022q3_32dp.png)
 
 ---
 
@@ -39,8 +37,8 @@ A modern, production-grade cloud storage platform built with React, Node.js, Exp
 ### 2. Installation
 ```bash
 # Clone the repository
-git clone https://github.com/ayus0109/google-drive.git
-cd google-drive
+git clone https://github.com/ayus0109/drivora.git
+cd drivora
 
 # Install all dependencies (backend + frontend)
 npm install --prefix backend
@@ -78,15 +76,15 @@ This repository is pre-configured with `render.yaml` for a **1-click unified ful
 ### Step-by-Step Deployment Guide:
 1. Push this repository to your GitHub account:
    ```bash
-   git remote add origin https://github.com/ayus0109/google-drive.git
+   git remote add origin https://github.com/ayus0109/drivora.git
    git branch -M main
    git push -u origin main
    ```
 2. Log in to [Render.com](https://render.com).
 3. Click **New +** → **Web Service**.
-4. Connect your GitHub repository (`google-drive`).
+4. Connect your GitHub repository (`drivora`).
 5. Configure the Web Service settings:
-   - **Name**: `google-drive`
+   - **Name**: `drivora`
    - **Runtime**: `Node`
    - **Build Command**: `npm run build`
    - **Start Command**: `npm start`

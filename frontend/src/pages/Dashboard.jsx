@@ -360,7 +360,7 @@ const Dashboard = () => {
             </div>
             <div>
               <h1 className="text-base font-bold text-gray-900 tracking-tight leading-none">
-                Google Drive
+                Drivora
               </h1>
               <span className="text-[10px] text-blue-600 font-semibold tracking-wide">
                 15 GB Encrypted Cloud
@@ -433,7 +433,7 @@ const Dashboard = () => {
                   </div>
                   <div>
                     <h2 className="text-sm font-bold text-gray-900 tracking-tight leading-none">
-                      Google Drive
+                      Drivora
                     </h2>
                     <span className="text-[10px] text-blue-600 font-semibold">
                       15 GB Encrypted Cloud
@@ -589,7 +589,7 @@ const Dashboard = () => {
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs">
                   <HardDrive className="h-4 w-4" />
                 </div>
-                <span className="font-bold text-sm text-gray-900 tracking-tight">Google Drive</span>
+                <span className="font-bold text-sm text-gray-900 tracking-tight">Drivora</span>
               </div>
             )}
           </div>

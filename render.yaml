@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: google-drive
+    name: drivora
     runtime: node
     plan: free
     region: oregon

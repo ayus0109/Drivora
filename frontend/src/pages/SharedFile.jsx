@@ -147,7 +147,7 @@ const SharedFile = () => {
               className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white shadow hover:bg-blue-700 transition-colors"
             >
               <HardDrive className="h-4 w-4" />
-              <span>Go to Google Drive</span>
+              <span>Go to Drivora</span>
             </Link>
           </div>
         </div>
@@ -192,7 +192,7 @@ const SharedFile = () => {
           </div>
           <div>
             <h1 className="text-sm font-bold text-gray-900 tracking-tight leading-none">
-              Google Drive
+              Drivora
             </h1>
             <span className="text-[10px] font-medium text-blue-600">Public Share</span>
           </div>
@@ -340,7 +340,7 @@ const SharedFile = () => {
 
       {/* Footer */}
       <footer className="py-4 text-center text-xs text-gray-400">
-        Google Drive — Cloud Storage System
+        Drivora — Cloud Storage System
       </footer>
     </div>
   );

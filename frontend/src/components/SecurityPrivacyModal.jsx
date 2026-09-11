@@ -65,7 +65,7 @@ const SecurityPrivacyModal = ({ isOpen, onClose }) => {
                 Security & Data Privacy Architecture
               </h3>
               <p className="text-xs text-gray-500">
-                Enterprise-grade privacy protections built into Google Drive
+                Enterprise-grade privacy protections built into Drivora
               </p>
             </div>
           </div>

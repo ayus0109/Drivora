@@ -209,7 +209,7 @@ const TechnicalVivaModal = ({ isOpen, onClose }) => {
                   Zero-Knowledge & Data Privacy Model
                 </h4>
                 <p className="text-xs text-emerald-800 leading-relaxed">
-                  In traditional multi-tenant storage, administrators or operators can inspect uploaded files. In our Google Drive architecture, data privacy is cryptographically enforced rather than just policy-based.
+                  In traditional multi-tenant storage, administrators or operators can inspect uploaded files. In our Drivora architecture, data privacy is cryptographically enforced rather than just policy-based.
                 </p>
               </div>
 
@@ -281,7 +281,7 @@ const TechnicalVivaModal = ({ isOpen, onClose }) => {
 
         {/* Footer */}
         <div className="px-6 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between text-xs text-gray-500">
-          <span>Google Drive • Cloud Storage System</span>
+          <span>Drivora • Cloud Storage System</span>
           <button
             onClick={onClose}
             className="px-4 py-1.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"

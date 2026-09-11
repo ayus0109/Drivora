@@ -145,7 +145,7 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
             Sign in with Google
           </h2>
           <p className="mt-1 text-xs text-gray-500 font-medium">
-            to continue to <span className="font-bold text-gray-700">Google Drive</span>
+            to continue to <span className="font-bold text-gray-700">Drivora</span>
           </p>
         </div>
 
@@ -308,7 +308,7 @@ const GoogleSignInModal = ({ isOpen, onClose, onGoogleLogin }) => {
             <span>Encrypted OAuth 2.0 Token Exchange • 15 GB Free Quota</span>
           </div>
           <p className="text-[10px] text-center text-gray-400 leading-relaxed">
-            To continue, Google will securely share your profile information with Google Drive in accordance with our{' '}
+            To continue, Google will securely share your profile information with Drivora in accordance with our{' '}
             <span className="text-gray-600 underline">Privacy Policy</span> and{' '}
             <span className="text-gray-600 underline">Terms of Service</span>.
           </p>

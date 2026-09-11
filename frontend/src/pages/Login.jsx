@@ -130,7 +130,7 @@ const Login = () => {
             <HardDrive className="h-7 w-7" />
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-gray-900">
-            Sign in to Google Drive
+            Sign in to Drivora
           </h2>
           <p className="mt-1.5 text-xs sm:text-sm text-gray-500">
             Secure cloud storage for all your files & folders

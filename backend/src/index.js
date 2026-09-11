@@ -93,7 +93,7 @@ async function startServer() {
 
     const PORT = config.port;
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Google Drive backend listening on http://localhost:${PORT}`);
+      console.log(`🚀 Drivora backend listening on http://localhost:${PORT}`);
     });
   } catch (err) {
     console.error('❌ Failed to connect to MongoDB Atlas:', err.message);

@@ -84,7 +84,7 @@ const Signup = () => {
             <HardDrive className="h-7 w-7" />
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-gray-900">
-            Create your Google Drive account
+            Create your Drivora account
           </h2>
           <p className="mt-1.5 text-xs sm:text-sm text-gray-500">
             Get 15 GB of free encrypted cloud storage instantly

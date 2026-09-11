@@ -1,7 +1,7 @@
 {
-  "name": "google-drive-backend",
+  "name": "drivora-backend",
   "version": "1.0.0",
-  "description": "Google Drive Backend",
+  "description": "Drivora Backend",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

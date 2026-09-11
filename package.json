@@ -1,7 +1,7 @@
 {
-  "name": "google-drive-cloud-storage",
+  "name": "drivora-cloud-storage",
   "version": "1.0.0",
-  "description": "Google Drive Cloud Storage System with 15 GB quota, client-side AES-256-GCM encryption, and Google SSO.",
+  "description": "Drivora — Cloud Storage System with 15 GB quota, client-side AES-256-GCM encryption, and Google SSO.",
   "scripts": {
     "build": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend",
     "start": "node backend/src/index.js",
@@ -12,6 +12,7 @@
     "node": ">=18.0.0"
   },
   "keywords": [
+    "drivora",
     "google-drive",
     "cloud-storage",
     "aes-256-gcm",
