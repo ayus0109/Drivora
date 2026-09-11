@@ -121,6 +121,71 @@ const Dashboard = () => {
 
   const uploadInputRef = useRef(null);
 
+  // Full-Window Drag and Drop for external files (Google Drive standard)
+  const [isWindowDragOver, setIsWindowDragOver] = useState(false);
+  const windowDragCounter = useRef(0);
+
+  useEffect(() => {
+    const handleDragEnter = (e) => {
+      e.preventDefault();
+      // Only activate for OS files, not for internal file-to-folder dragging
+      if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
+        windowDragCounter.current += 1;
+        setIsWindowDragOver(true);
+      }
+    };
+
+    const handleDragLeave = (e) => {
+      e.preventDefault();
+      windowDragCounter.current -= 1;
+      if (windowDragCounter.current <= 0) {
+        windowDragCounter.current = 0;
+        setIsWindowDragOver(false);
+      }
+    };
+
+    const handleDragOver = (e) => {
+      e.preventDefault();
+      if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    };
+
+    const handleDrop = (e) => {
+      e.preventDefault();
+      windowDragCounter.current = 0;
+      setIsWindowDragOver(false);
+
+      const filesDropped = e.dataTransfer.files;
+      if (filesDropped && filesDropped.length > 0) {
+        Array.from(filesDropped).forEach((file) => handleFileUpload(file));
+      }
+    };
+
+    window.addEventListener('dragenter', handleDragEnter);
+    window.addEventListener('dragleave', handleDragLeave);
+    window.addEventListener('dragover', handleDragOver);
+    window.addEventListener('drop', handleDrop);
+
+    return () => {
+      window.removeEventListener('dragenter', handleDragEnter);
+      window.removeEventListener('dragleave', handleWindowDragLeave);
+      window.removeEventListener('dragover', handleDragOver);
+      window.removeEventListener('drop', handleDrop);
+    };
+  }, [currentFolderId, activeTab, user]);
+
+  // Handle moving a file onto a folder via internal drag & drop
+  const handleMoveFileToFolder = async (fileId, fileName, targetFolder) => {
+    try {
+      await api.patch(`/files/${fileId}/move`, { targetFolderId: targetFolder._id });
+      addToast(`Moved "${fileName}" into "${targetFolder.name}".`, 'success');
+      fetchData();
+    } catch (err) {
+      addToast(err.response?.data?.message || 'Failed to move file.', 'error');
+    }
+  };
+
   // Fetch items whenever folder, tab, sort, or search changes
   useEffect(() => {
     clearSelection();
@@ -1386,6 +1451,7 @@ const Dashboard = () => {
                 onUpload={handleFileUpload}
                 uploadStatus={uploadStatus}
                 onCreateFolder={() => setIsCreateFolderOpen(true)}
+                currentFolderName={breadcrumbs[breadcrumbs.length - 1]?.name || 'My Drive'}
               />
             </div>
           )}
@@ -1437,6 +1503,7 @@ const Dashboard = () => {
                         onPermanentDelete={(folder) =>
                           setDeleteTarget({ item: folder, isFolder: true, isPermanent: true })
                         }
+                        onDropFile={handleMoveFileToFolder}
                       />
                     ))}
                   </div>
@@ -1688,6 +1755,47 @@ const Dashboard = () => {
         isOpen={isVivaOpen}
         onClose={() => setIsVivaOpen(false)}
       />
+
+      {/* GLOBAL FULL-WINDOW DRAG & DROP OVERLAY (Google Drive standard) */}
+      {isWindowDragOver && (
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            setIsWindowDragOver(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsWindowDragOver(false);
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+              Array.from(e.dataTransfer.files).forEach((file) => handleFileUpload(file));
+            }
+          }}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-blue-900/60 backdrop-blur-sm animate-in fade-in duration-150 p-6 pointer-events-auto"
+        >
+          <div className="flex flex-col items-center justify-center p-10 sm:p-14 rounded-3xl border-4 border-dashed border-white bg-blue-600 text-white shadow-2xl max-w-lg w-full text-center scale-100 animate-in zoom-in-95 duration-150">
+            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-white/20 mb-5 shadow-lg shadow-blue-700/50">
+              <UploadCloud className="h-10 w-10 text-white animate-bounce" />
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              Drop files to upload
+            </h2>
+            <p className="mt-2 text-sm sm:text-base text-blue-100 font-medium">
+              Releasing will encrypt and upload to{' '}
+              <span className="font-bold underline text-white">
+                {breadcrumbs[breadcrumbs.length - 1]?.name || 'My Drive'}
+              </span>
+            </p>
+            <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-xs text-blue-200 font-semibold border border-white/20">
+              <ShieldCheck className="h-4 w-4 text-emerald-300" />
+              <span>AES-256-GCM Military Grade AEAD Encryption</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

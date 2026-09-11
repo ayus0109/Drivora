@@ -1,67 +1,91 @@
 import React, { useState, useRef } from 'react';
-import { UploadCloud, FolderPlus, CheckCircle2, AlertCircle } from 'lucide-react';
+import { UploadCloud, FolderPlus, CheckCircle2, AlertCircle, FileUp, Sparkles, ShieldCheck } from 'lucide-react';
 
-const UploadDropzone = ({ onUpload, uploadStatus, onCreateFolder }) => {
+const UploadDropzone = ({
+  onUpload,
+  uploadStatus,
+  onCreateFolder,
+  currentFolderName = 'My Drive',
+}) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef(null);
+  const dragCounter = useRef(0);
 
-  const handleDragOver = (e) => {
+  const handleDragEnter = (e) => {
     e.preventDefault();
-    setIsDragOver(true);
+    e.stopPropagation();
+    dragCounter.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragOver(true);
+    }
   };
 
   const handleDragLeave = (e) => {
     e.preventDefault();
-    setIsDragOver(false);
+    e.stopPropagation();
+    dragCounter.current -= 1;
+    if (dragCounter.current === 0) {
+      setIsDragOver(false);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragOver(false);
-    const files = e.dataTransfer.files;
-    if (files && files.length > 0) {
-      onUpload(files[0]);
+    dragCounter.current = 0;
+
+    const droppedFiles = e.dataTransfer.files;
+    if (droppedFiles && droppedFiles.length > 0) {
+      if (droppedFiles.length === 1) {
+        onUpload(droppedFiles[0]);
+      } else {
+        // Upload each dropped file
+        Array.from(droppedFiles).forEach((file) => onUpload(file));
+      }
     }
   };
 
   const handleFileSelect = (e) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      onUpload(files[0]);
+    const selectedFiles = e.target.files;
+    if (selectedFiles && selectedFiles.length > 0) {
+      if (selectedFiles.length === 1) {
+        onUpload(selectedFiles[0]);
+      } else {
+        Array.from(selectedFiles).forEach((file) => onUpload(file));
+      }
     }
-    // reset input value so re-uploading same file triggers event
     e.target.value = '';
   };
 
   return (
-    <div>
+    <div className="space-y-3">
+      {/* Hidden Multi-file input */}
       <input
         ref={fileInputRef}
         type="file"
+        multiple
         onChange={handleFileSelect}
         className="hidden"
       />
 
-      {/* Center Action Panel: Unified 1-Time Upload File & New Folder */}
-      <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className={`rounded-2xl border transition-all p-3 sm:p-3.5 ${
-          isDragOver
-            ? 'border-blue-500 bg-blue-50/80 scale-[1.01]'
-            : 'border-gray-200/90 bg-white shadow-2xs'
-        }`}
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {/* Action Buttons: 1 Clean Place in the Center */}
+      {/* Main Dropzone Card */}
+      <div className="rounded-2xl border border-gray-200/90 bg-white p-3.5 sm:p-4 shadow-xs">
+        {/* Top Control Bar with Upload File & New Folder */}
+        <div className="flex items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-2.5 flex-1">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 sm:py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold text-sm shadow-md shadow-blue-600/20 transition-all touch-active"
+              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold text-xs sm:text-sm shadow-md shadow-blue-600/20 transition-all touch-active"
             >
-              <UploadCloud className="h-4.5 w-4.5 stroke-[2.2]" />
+              <UploadCloud className="h-4 w-4 stroke-[2.4]" />
               <span>Upload File</span>
             </button>
 
@@ -69,25 +93,65 @@ const UploadDropzone = ({ onUpload, uploadStatus, onCreateFolder }) => {
               <button
                 type="button"
                 onClick={onCreateFolder}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 sm:py-3 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 active:scale-[0.98] text-gray-700 font-bold text-sm shadow-2xs transition-all touch-active"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 active:scale-[0.98] text-gray-700 font-bold text-xs sm:text-sm shadow-2xs transition-all touch-active"
               >
-                <FolderPlus className="h-4.5 w-4.5 text-gray-500" />
+                <FolderPlus className="h-4 w-4 text-gray-500" />
                 <span>New Folder</span>
               </button>
             )}
           </div>
 
-          {/* Drag & Drop Hint for Desktop */}
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className="cursor-pointer text-center sm:text-right text-xs text-gray-400 font-medium hover:text-blue-600 transition-colors py-0.5"
-          >
-            {isDragOver ? (
-              <span className="text-blue-600 font-bold">Release to drop & upload files</span>
-            ) : (
-              <span className="hidden sm:inline">💡 Drag & drop files anywhere here (up to 100 MB)</span>
-            )}
+          <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-gray-400 font-semibold">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+            <span>AES-256-GCM Encrypted</span>
           </div>
+        </div>
+
+        {/* Dedicated Visual Drag & Drop Box */}
+        <div
+          onDragEnter={handleDragEnter}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`group relative rounded-xl border-2 border-dashed transition-all cursor-pointer p-6 sm:p-8 flex flex-col items-center justify-center text-center select-none ${
+            isDragOver
+              ? 'border-blue-500 bg-blue-50/90 scale-[1.01] shadow-inner ring-4 ring-blue-500/10'
+              : 'border-gray-200 hover:border-blue-400 bg-gray-50/60 hover:bg-blue-50/30'
+          }`}
+        >
+          <div
+            className={`flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl transition-transform duration-200 mb-3 ${
+              isDragOver
+                ? 'bg-blue-600 text-white scale-110 shadow-lg shadow-blue-500/30'
+                : 'bg-blue-100/80 text-blue-600 group-hover:scale-105 group-hover:bg-blue-600 group-hover:text-white'
+            }`}
+          >
+            <FileUp className="h-6 w-6 sm:h-7 sm:w-7 stroke-[2.2]" />
+          </div>
+
+          {isDragOver ? (
+            <div className="space-y-1 animate-in zoom-in-95 duration-100">
+              <p className="text-sm sm:text-base font-bold text-blue-600">
+                Drop files here to upload to {currentFolderName}
+              </p>
+              <p className="text-xs text-blue-500 font-semibold">
+                Releasing will upload and encrypt your files immediately
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <p className="text-xs sm:text-sm font-bold text-gray-800 group-hover:text-blue-600 transition-colors">
+                Drag and drop your files here, or{' '}
+                <span className="text-blue-600 underline underline-offset-2">
+                  browse from device
+                </span>
+              </p>
+              <p className="text-[11px] sm:text-xs text-gray-400 font-medium">
+                Supports PDF, Docs, Images, Audio, Video & Archives (up to 100 MB per file)
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

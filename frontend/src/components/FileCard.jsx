@@ -51,8 +51,16 @@ const FileCard = ({
 
   return (
     <div
+      draggable={!isTrashView}
+      onDragStart={(e) => {
+        e.dataTransfer.setData(
+          'text/plain',
+          JSON.stringify({ type: 'drivora-file', fileId: file._id, fileName: file.name })
+        );
+        e.dataTransfer.effectAllowed = 'move';
+      }}
       onDoubleClick={() => !isTrashView && onPreview && onPreview(file, 'preview')}
-      className={`group relative flex flex-col justify-between p-4 rounded-2xl border transition-all select-none ${
+      className={`group relative flex flex-col justify-between p-4 rounded-2xl border transition-all select-none cursor-grab active:cursor-grabbing ${
         isSelected
           ? 'bg-blue-50/70 border-blue-500 shadow-md ring-1 ring-blue-500/30'
           : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-md'

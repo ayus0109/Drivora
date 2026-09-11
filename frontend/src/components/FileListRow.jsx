@@ -50,8 +50,16 @@ const FileListRow = ({
 
   return (
     <div
+      draggable={!isTrashView}
+      onDragStart={(e) => {
+        e.dataTransfer.setData(
+          'text/plain',
+          JSON.stringify({ type: 'drivora-file', fileId: file._id, fileName: file.name })
+        );
+        e.dataTransfer.effectAllowed = 'move';
+      }}
       onDoubleClick={() => !isTrashView && onPreview && onPreview(file, 'preview')}
-      className={`group flex items-center justify-between px-4 py-3 border-b border-gray-100 transition-colors text-sm select-none ${
+      className={`group flex items-center justify-between px-4 py-3 border-b border-gray-100 transition-colors text-sm select-none cursor-grab active:cursor-grabbing ${
         isSelected
           ? 'bg-blue-50/80 border-blue-200'
           : 'hover:bg-blue-50/40 bg-white'

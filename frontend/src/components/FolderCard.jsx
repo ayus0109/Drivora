@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Check,
   FolderOpen,
+  ArrowDownToLine,
 } from 'lucide-react';
 
 const FolderCard = ({
@@ -24,8 +25,10 @@ const FolderCard = ({
   isTrashView = false,
   onRestore,
   onPermanentDelete,
+  onDropFile,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isDragOverFolder, setIsDragOverFolder] = useState(false);
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -45,13 +48,54 @@ const FolderCard = ({
     onOpen(folder._id);
   };
 
+  // Drag & Drop event handlers to receive dropped files
+  const handleFolderDragOver = (e) => {
+    if (isTrashView) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    if (!isDragOverFolder) {
+      setIsDragOverFolder(true);
+    }
+  };
+
+  const handleFolderDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOverFolder(false);
+  };
+
+  const handleFolderDrop = (e) => {
+    if (isTrashView) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOverFolder(false);
+
+    try {
+      const rawData = e.dataTransfer.getData('text/plain');
+      if (rawData) {
+        const data = JSON.parse(rawData);
+        if (data.type === 'drivora-file' && data.fileId && onDropFile) {
+          onDropFile(data.fileId, data.fileName, folder);
+        }
+      }
+    } catch (err) {
+      console.error('Folder drop error:', err);
+    }
+  };
+
   // LIST VIEW
   if (viewMode === 'list') {
     return (
       <div
         onDoubleClick={handleCardClick}
-        className={`group flex items-center justify-between px-4 py-3 transition-colors border-b border-gray-100 cursor-pointer select-none ${
-          isSelected
+        onDragOver={handleFolderDragOver}
+        onDragLeave={handleFolderDragLeave}
+        onDrop={handleFolderDrop}
+        className={`group flex items-center justify-between px-4 py-3 transition-all border-b border-gray-100 cursor-pointer select-none ${
+          isDragOverFolder
+            ? 'bg-blue-100/90 border-blue-400 ring-2 ring-blue-500 scale-[1.01]'
+            : isSelected
             ? 'bg-blue-50/80 border-blue-200'
             : 'hover:bg-blue-50/50 bg-white'
         }`}
@@ -103,6 +147,11 @@ const FolderCard = ({
             <span className="text-sm sm:text-base font-bold text-gray-800 truncate">
               {folder.name}
             </span>
+            {isDragOverFolder && (
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 bg-blue-200/80 px-2 py-0.5 rounded-full animate-pulse">
+                <ArrowDownToLine className="h-3 w-3" /> Drop to move inside
+              </span>
+            )}
           </div>
         </div>
 
@@ -232,8 +281,13 @@ const FolderCard = ({
   return (
     <div
       onDoubleClick={handleCardClick}
+      onDragOver={handleFolderDragOver}
+      onDragLeave={handleFolderDragLeave}
+      onDrop={handleFolderDrop}
       className={`group relative flex items-center justify-between p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer select-none touch-active ${
-        isSelected
+        isDragOverFolder
+          ? 'bg-blue-100/90 border-blue-500 ring-4 ring-blue-500/25 scale-105 shadow-lg'
+          : isSelected
           ? 'bg-blue-50/70 border-blue-500 shadow-md ring-1 ring-blue-500/30'
           : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm'
       }`}
@@ -261,12 +315,19 @@ const FolderCard = ({
         )}
 
         <FolderIcon className="h-6 w-6 sm:h-7 sm:w-7 text-amber-500 fill-amber-500/20 flex-shrink-0" />
-        <span
-          className="text-sm sm:text-base font-bold text-gray-800 truncate"
-          title={folder.name}
-        >
-          {folder.name}
-        </span>
+        <div className="min-w-0 flex-1">
+          <span
+            className="text-sm sm:text-base font-bold text-gray-800 truncate block"
+            title={folder.name}
+          >
+            {folder.name}
+          </span>
+          {isDragOverFolder && (
+            <span className="text-[10px] font-bold text-blue-700 block animate-pulse">
+              Drop to move here
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Star Indicator / Quick Controls */}
@@ -354,7 +415,7 @@ const FolderCard = ({
                     className="flex w-full items-center gap-3 px-3.5 py-2.5 rounded-xl text-gray-700 hover:bg-gray-100 transition-colors text-sm font-semibold"
                   >
                     <Star
-                      className={`h-4 w-4 ${
+                      className={`h-4.5 w-4.5 ${
                         folder.isStarred ? 'text-amber-500 fill-amber-400' : 'text-gray-500'
                       }`}
                     />
