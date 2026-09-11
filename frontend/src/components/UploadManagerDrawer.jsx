@@ -47,7 +47,7 @@ const UploadManagerDrawer = () => {
   return (
     <aside
       aria-label="Upload manager"
-      className="fixed bottom-4 right-4 sm:right-6 z-50 w-84 sm:w-96 rounded-2xl bg-white shadow-2xl border border-gray-200/90 overflow-hidden select-none transition-all duration-300 animate-in slide-in-from-bottom-4"
+      className="fixed bottom-2 sm:bottom-4 inset-x-2 sm:inset-x-auto sm:right-6 sm:w-96 z-50 max-w-[calc(100vw-16px)] rounded-2xl bg-white shadow-2xl border border-gray-200/90 overflow-hidden select-none transition-all duration-300 animate-in slide-in-from-bottom-4"
     >
       {/* Header Bar */}
       <div
@@ -153,7 +153,7 @@ const UploadManagerDrawer = () => {
 
           {/* Scrollable File Items */}
           <div className="max-h-72 overflow-y-auto divide-y divide-gray-100">
-            {items.map((item) => {
+            {items.slice(0, 35).map((item) => {
               const { icon } = getFileIcon(item.mimeType, item.name);
 
               return (
@@ -234,6 +234,12 @@ const UploadManagerDrawer = () => {
                 </div>
               );
             })}
+
+            {items.length > 35 && (
+              <div className="px-4 py-3 bg-gray-50/90 text-center text-xs font-semibold text-gray-500 border-t border-gray-100">
+                + {items.length - 35} more items in upload pipeline
+              </div>
+            )}
           </div>
         </div>
       )}

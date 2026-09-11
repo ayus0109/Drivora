@@ -8,15 +8,27 @@ import api from '../api/axios';
  * - Batches UI update callbacks to prevent database & DOM thrashing
  */
 
+const isMobileClient = () => {
+  if (typeof window === 'undefined') return false;
+  return (
+    'ontouchstart' in window ||
+    navigator.maxTouchPoints > 0 ||
+    /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '')
+  );
+};
+
 class UploadQueue {
-  constructor(concurrency = 4) {
-    this.concurrency = concurrency;
+  constructor(concurrency = null) {
+    // 2 parallel workers on mobile links (avoids upstream cellular drops), 4 on desktop
+    this.concurrency = concurrency !== null ? concurrency : (isMobileClient() ? 2 : 4);
     this.queue = []; // Array of upload item objects
     this.activeCount = 0;
     this.listeners = new Set();
     this.onBatchCompleteCallback = null;
     this.completedSinceLastSync = 0;
     this.syncTimer = null;
+    this.notifyTimeout = null;
+    this.lastNotifyTime = 0;
   }
 
   // Subscribe to queue state updates (React state hooks)
@@ -26,10 +38,36 @@ class UploadQueue {
     return () => this.listeners.delete(listener);
   }
 
-  notify() {
-    const snapshot = this.getSnapshot();
-    for (const listener of this.listeners) {
-      listener(snapshot);
+  notify(immediate = true) {
+    if (immediate) {
+      if (this.notifyTimeout) {
+        clearTimeout(this.notifyTimeout);
+        this.notifyTimeout = null;
+      }
+      this.lastNotifyTime = Date.now();
+      const snapshot = this.getSnapshot();
+      for (const listener of this.listeners) {
+        listener(snapshot);
+      }
+      return;
+    }
+
+    const now = Date.now();
+    if (now - this.lastNotifyTime >= 100) {
+      this.lastNotifyTime = now;
+      const snapshot = this.getSnapshot();
+      for (const listener of this.listeners) {
+        listener(snapshot);
+      }
+    } else if (!this.notifyTimeout) {
+      this.notifyTimeout = setTimeout(() => {
+        this.notifyTimeout = null;
+        this.lastNotifyTime = Date.now();
+        const snapshot = this.getSnapshot();
+        for (const listener of this.listeners) {
+          listener(snapshot);
+        }
+      }, 100 - (now - this.lastNotifyTime));
     }
   }
 
@@ -132,7 +170,7 @@ class UploadQueue {
           if (progressEvent.total) {
             const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
             item.progress = percent;
-            this.notify();
+            this.notify(false);
           }
         },
       });
@@ -142,8 +180,8 @@ class UploadQueue {
       item.uploadedFile = res.data?.file;
       this.completedSinceLastSync += 1;
 
-      // Throttle DB syncs: batch sync every 4 completed files
-      if (this.completedSinceLastSync >= 4) {
+      // Throttle DB syncs: batch sync based on concurrency
+      if (this.completedSinceLastSync >= this.concurrency) {
         this.triggerSync();
       }
     } catch (err) {
@@ -151,7 +189,7 @@ class UploadQueue {
       item.error = err.response?.data?.message || err.message || 'Upload failed';
     } finally {
       this.activeCount = Math.max(0, this.activeCount - 1);
-      this.notify();
+      this.notify(true);
       this.processQueue();
     }
   }
@@ -171,13 +209,13 @@ class UploadQueue {
     if (item.status === 'queued') {
       item.status = 'error';
       item.error = 'Cancelled';
-      this.notify();
+      this.notify(true);
     } else if (item.status === 'uploading') {
       // In Axios or fetch, mark as error
       item.status = 'error';
       item.error = 'Cancelled by user';
       this.activeCount = Math.max(0, this.activeCount - 1);
-      this.notify();
+      this.notify(true);
       this.processQueue();
     }
   }
@@ -191,23 +229,23 @@ class UploadQueue {
       }
     }
     this.activeCount = 0;
-    this.notify();
+    this.notify(true);
   }
 
   // Clear completed or error items from manager
   clearFinished() {
     this.queue = this.queue.filter((item) => item.status === 'queued' || item.status === 'uploading');
-    this.notify();
+    this.notify(true);
   }
 
   // Fully reset
   reset() {
     this.queue = [];
     this.activeCount = 0;
-    this.notify();
+    this.notify(true);
   }
 }
 
-// Global Singleton Instance
-export const uploadQueue = new UploadQueue(4);
+// Global Singleton Instance (Dynamic 2 workers on mobile, 4 on desktop)
+export const uploadQueue = new UploadQueue();
 export default uploadQueue;

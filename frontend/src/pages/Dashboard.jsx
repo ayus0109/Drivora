@@ -23,7 +23,6 @@ import MoveModal from '../components/MoveModal';
 import StorageBreakdownModal from '../components/StorageBreakdownModal';
 import Toast from '../components/Toast';
 import UploadManagerDrawer from '../components/UploadManagerDrawer';
-import BulkGeneratorModal from '../components/BulkGeneratorModal';
 import uploadQueue from '../utils/uploadQueue';
 import { extractFilesFromDataTransfer, resolveFolderPath } from '../utils/fileTraversal';
 
@@ -55,7 +54,7 @@ import {
   AlertTriangle,
   Check,
   Sparkles,
-  Zap,
+  HelpCircle,
 } from 'lucide-react';
 
 const FIFTEEN_GB = 16106127360; // 15 GB (Google Drive standard)
@@ -102,7 +101,6 @@ const Dashboard = () => {
   const [isSecurityOpen, setIsSecurityOpen] = useState(false);
   const [isActivityOpen, setIsActivityOpen] = useState(false);
   const [isVivaOpen, setIsVivaOpen] = useState(false);
-  const [isBulkGeneratorOpen, setIsBulkGeneratorOpen] = useState(false);
   const [visibleFileCount, setVisibleFileCount] = useState(100);
 
   const currentFolderIdRef = useRef(currentFolderId);
@@ -703,17 +701,28 @@ const Dashboard = () => {
       {/* Toast Notifications */}
       <Toast toasts={toasts} onDismiss={removeToast} />
 
-      {/* Hidden file input for "+ New" button */}
+      {/* Accessible DOM-rendered multi-file input (avoids mobile browsers dropping change events) */}
       <input
         ref={uploadInputRef}
         type="file"
+        multiple
+        accept="*/*"
         onChange={(e) => {
-          if (e.target.files?.[0]) {
-            handleFileUpload(e.target.files[0]);
-            e.target.value = '';
+          const selectedFiles = Array.from(e.target.files || []);
+          if (selectedFiles.length > 0) {
+            addToast(`Preparing ${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''} for upload...`, 'info');
+            const payload = selectedFiles.map((file) => ({
+              file,
+              folderId: currentFolderIdRef.current,
+              folderName: breadcrumbsRef.current[breadcrumbsRef.current.length - 1]?.name || 'My Drive',
+            }));
+            uploadQueue.enqueue(payload);
           }
+          e.target.value = '';
         }}
-        className="hidden"
+        className="sr-only opacity-0 absolute w-0 h-0 pointer-events-none"
+        aria-hidden="true"
+        tabIndex="-1"
       />
 
       {/* DESKTOP SIDEBAR */}
@@ -975,23 +984,12 @@ const Dashboard = () => {
                 <button
                   onClick={() => {
                     setIsMobileDrawerOpen(false);
-                    setIsBulkGeneratorOpen(true);
-                  }}
-                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-sm font-bold text-amber-700 hover:bg-amber-50 transition-colors"
-                >
-                  <Zap className="h-5 w-5 text-amber-600 fill-amber-500" />
-                  <span>Fast Fill & Stress Test</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setIsMobileDrawerOpen(false);
                     setIsVivaOpen(true);
                   }}
-                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-sm font-semibold text-purple-700 hover:bg-purple-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-sm font-semibold text-blue-700 hover:bg-blue-50 transition-colors"
                 >
-                  <Layers className="h-5 w-5 text-purple-600" />
-                  <span>Architecture & Viva</span>
+                  <HelpCircle className="h-5 w-5 text-blue-600" />
+                  <span>FAQ & Help</span>
                 </button>
 
                 <button
@@ -1106,24 +1104,14 @@ const Dashboard = () => {
               <Search className="h-5 w-5" />
             </button>
 
-            {/* Storage Fast-Fill & Benchmark Button */}
-            <button
-              onClick={() => setIsBulkGeneratorOpen(true)}
-              title="Storage Fast-Fill & Scale Benchmark (1,000–5,000 Files)"
-              className="flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl border border-amber-200 bg-amber-50 text-xs font-bold text-amber-800 hover:bg-amber-100 touch-active transition-colors shadow-2xs cursor-pointer"
-            >
-              <Zap className="h-4 w-4 text-amber-600 fill-amber-500" />
-              <span className="hidden md:inline">Fast Fill / Test</span>
-            </button>
-
-            {/* Architecture & Viva Guide Button */}
+            {/* FAQ & System Guide Button */}
             <button
               onClick={() => setIsVivaOpen(true)}
-              title="Academic Architecture & Technical Viva Defense Guide"
-              className="flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl border border-purple-200 bg-purple-50 text-xs font-bold text-purple-700 hover:bg-purple-100 touch-active transition-colors shadow-2xs"
+              title="Frequently Asked Questions (FAQ) & System Guide"
+              className="flex items-center gap-1.5 p-2 sm:px-3 sm:py-1.5 rounded-xl border border-blue-200 bg-blue-50/80 text-xs font-bold text-blue-700 hover:bg-blue-100 touch-active transition-colors shadow-2xs"
             >
-              <Layers className="h-4 w-4 text-purple-600" />
-              <span className="hidden md:inline">Architecture & Viva</span>
+              <HelpCircle className="h-4 w-4 text-blue-600" />
+              <span className="hidden md:inline">FAQ</span>
             </button>
 
             {/* Security & Privacy Trigger */}
@@ -1442,6 +1430,7 @@ const Dashboard = () => {
                 onCreateFolder={() => setIsCreateFolderOpen(true)}
                 currentFolderId={currentFolderId}
                 currentFolderName={breadcrumbs[breadcrumbs.length - 1]?.name || 'My Drive'}
+                onToast={addToast}
               />
             </div>
           )}
@@ -1863,19 +1852,6 @@ const Dashboard = () => {
 
       {/* Google Drive Style Floating Upload Manager Drawer */}
       <UploadManagerDrawer />
-
-      {/* Bulk Generator & Stress Test Modal */}
-      <BulkGeneratorModal
-        isOpen={isBulkGeneratorOpen}
-        onClose={() => setIsBulkGeneratorOpen(false)}
-        currentFolderId={currentFolderId}
-        user={user}
-        onSuccess={(result) => {
-          addToast(result.message || 'Benchmark files generated successfully!', 'success');
-          fetchData();
-          refreshUser();
-        }}
-      />
     </div>
   );
 };

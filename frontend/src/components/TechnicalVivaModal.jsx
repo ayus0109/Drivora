@@ -14,50 +14,62 @@ import {
   FolderTree,
   FileCheck,
   Zap,
+  HardDrive,
+  UploadCloud,
+  Share2,
 } from 'lucide-react';
 
 const TechnicalVivaModal = ({ isOpen, onClose }) => {
-  const [activeSection, setActiveSection] = useState('architecture'); // 'architecture' | 'privacy' | 'viva-qa'
+  const [activeSection, setActiveSection] = useState('faq'); // 'faq' | 'architecture'
   const [openFaq, setOpenFaq] = useState(0);
 
   if (!isOpen) return null;
 
   const faqs = [
     {
-      q: 'Q1: If someone uploads personal data here, can the database or server administrator read it?',
-      a: 'No. The system implements AES-256-GCM authenticated encryption at rest. Before any file is persisted to disk or cloud storage, it is encrypted in-memory using a 256-bit key and a random 96-bit Initialization Vector (IV). Even if a malicious actor or server administrator accesses the raw storage directory or database, they only see garbled .enc ciphertext with an integrity tag. The file can only be decrypted on-the-fly during an authenticated user session.',
+      q: 'How are my files and personal data protected?',
+      a: 'All files are secured with enterprise-grade AES-256-GCM authenticated encryption at rest. Before any file touches disk or cloud storage, it is encrypted in memory using a 256-bit key and an unpredictable 96-bit Initialization Vector (IV). A 16-byte authentication tag guarantees that the file cannot be tampered with. Even database or server administrators cannot read your files.',
+      icon: <Lock className="h-4 w-4 text-blue-600" />,
     },
     {
-      q: 'Q2: How does the system handle parallel uploads without breaking the 15 GB storage quota?',
-      a: 'The system uses MongoDB atomic update operators ($inc). When an upload arrives, the file size is verified against the available quota (quotaBytes - usedStorageBytes). If valid, the file is encrypted and saved, and MongoDB atomically increments the user\'s usedStorageBytes. If multiple uploads finish concurrently, atomic database increments prevent race conditions.',
+      q: 'How does the 15 GB storage quota work?',
+      a: 'Every user is allocated 15 GB of cloud storage. When uploading, the backend verifies available quota and atomically updates your used storage using MongoDB $inc operators to prevent race conditions. When you permanently empty Trash or delete items, storage is reclaimed immediately.',
+      icon: <HardDrive className="h-4 w-4 text-emerald-600" />,
     },
     {
-      q: 'Q3: What happens if a folder with nested subfolders and files is deleted?',
-      a: 'The backend implements a recursive depth-first deletion algorithm. In routes/folders.js, the collectDescendants function recursively traverses the folder tree, accumulates all descendant folder and file IDs, purges all corresponding physical files from storage, reclaims the storage quota, and deletes all database records atomically in a batch.',
+      q: 'Can I upload up to 500 photos and videos at once from my phone or PC?',
+      a: 'Yes! Drivora features a high-throughput concurrency upload queue. On desktop, it runs 4 concurrent upload streams; on mobile devices, it automatically optimizes to 2 streams to protect mobile bandwidth and battery. You can select up to 500 images, videos, or documents at once and track real-time progress via the floating Upload Manager drawer.',
+      icon: <UploadCloud className="h-4 w-4 text-purple-600" />,
     },
     {
-      q: 'Q4: How does public file sharing work without exposing private user credentials?',
-      a: 'Public share links rely on cryptographically secure 32-character random tokens generated via crypto.randomBytes(16). The token maps to a ShareLink document in MongoDB. The public route /api/share/:token requires zero credentials, increments view/download metrics, and provides read-only access. When the owner revokes the link, isActive is set to false, immediately returning HTTP 404 to all subsequent requests.',
+      q: 'Can I upload entire folders with nested subfolders and files?',
+      a: 'Yes. You can drag and drop entire directory trees directly onto the upload dropzone, or click "Upload Folder" to select a folder from your device. Drivora uses the HTML5 Directory Traversal API to scan nested structures and reconstruct all subfolders in your drive automatically.',
+      icon: <FolderTree className="h-4 w-4 text-amber-600" />,
     },
     {
-      q: 'Q5: Why did you choose AES-256-GCM over AES-256-CBC?',
-      a: 'AES-GCM (Galois/Counter Mode) provides Authenticated Encryption with Associated Data (AEAD). Unlike CBC mode which only offers confidentiality and requires separate HMAC hashing to detect tampering, GCM produces a 128-bit authentication tag directly. This mathematically guarantees both confidentiality AND ciphertext integrity, preventing bit-flipping attacks.',
+      q: 'How does public file sharing work without exposing my password or account?',
+      a: 'When you share a file, Drivora generates a cryptographically random 32-character token. Anyone with the public link can view or download the file in read-only mode without logging in. You can revoke access at any time with one click, which instantly deactivates the link.',
+      icon: <Share2 className="h-4 w-4 text-indigo-600" />,
     },
     {
-      q: 'Q6: How does the system recover if a file upload is interrupted midway?',
-      a: 'The system uses atomic two-phase commit logic. Multer receives the file stream into memory; only after the file is successfully encrypted with AES-256-GCM and written to the underlying storage bucket does the database record get created. If an error occurs during upload or cipher generation, no orphaned database document is saved and the user quota remains untouched.',
+      q: 'What happens when I delete a folder with nested subfolders and files?',
+      a: 'Drivora implements a recursive depth-first deletion engine. When you delete or permanently remove a folder, the system traverses all descendant subfolders, securely removes all associated encrypted files, and reclaims your storage quota in a single atomic database batch.',
+      icon: <Shield className="h-4 w-4 text-rose-600" />,
     },
     {
-      q: 'Q7: How are user passwords secured?',
-      a: 'Passwords are never stored in plaintext. They are salted and hashed using bcryptjs with a cost factor of 10 rounds prior to being saved in MongoDB. Even with rainbow tables or brute-force dictionaries, password hashes cannot be reverse-engineered.',
+      q: 'How does Google Sign-In (SSO) work with my account?',
+      a: 'Drivora integrates Google OAuth 2.0. If you sign in with Google, your account is verified securely and linked to your email address. You never risk duplicate accounts or lost files, and your 15 GB quota is provisioned instantly.',
+      icon: <CheckCircle2 className="h-4 w-4 text-teal-600" />,
     },
     {
-      q: 'Q8: What compliance or audit logging is present?',
-      a: 'Every critical operation (File Upload, Rename, Delete, Folder Creation, Share Link Generation) generates a tamper-evident audit record in the ActivityLog collection. This provides enterprise-level observability for compliance audits and security forensics.',
+      q: 'Is my data safe if an upload or network connection is interrupted midway?',
+      a: 'Yes. Drivora uses atomic two-phase commit logic. Files are streamed and encrypted in-flight; database records and storage quotas are only committed after the encrypted file has been verified and stored. If an upload fails or disconnects midway, no broken records are created and your quota remains untouched.',
+      icon: <FileCheck className="h-4 w-4 text-sky-600" />,
     },
     {
-      q: 'Q9: How does Google Single Sign-On (SSO) and Just-In-Time (JIT) provisioning work?',
-      a: 'The system integrates Google OAuth identity verification. If an existing email is detected, it links the Google identity without duplicating records or losing existing encrypted files. If a new user logs in via Google, JIT provisioning automatically verifies their identity and grants an enterprise 15 GB quota.',
+      q: 'Can I stream videos, audio, or preview files directly in the browser?',
+      a: 'Yes. Built-in high-performance streaming deciphers encrypted files on the fly. You can preview high-resolution images, stream MP4/WebM videos, listen to MP3 audio, view PDF documents, and inspect code files directly in the modal without downloading them first.',
+      icon: <Zap className="h-4 w-4 text-cyan-600" />,
     },
   ];
 
@@ -68,14 +80,14 @@ const TechnicalVivaModal = ({ isOpen, onClose }) => {
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50/80">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-blue-600 text-white shadow-xs">
-              <Layers className="h-5 w-5" />
+              <HelpCircle className="h-5 w-5" />
             </div>
             <div>
               <h2 className="text-base font-bold text-gray-900">
-                System Architecture & Viva Defense Guide
+                Frequently Asked Questions (FAQ) & System Guide
               </h2>
               <p className="text-xs text-gray-500">
-                Technical documentation, cryptographic design & evaluator Q&A for academic review
+                Quick answers about storage quotas, batch uploads, security, and cloud architecture
               </p>
             </div>
           </div>
@@ -90,39 +102,27 @@ const TechnicalVivaModal = ({ isOpen, onClose }) => {
         {/* Section Navigation */}
         <div className="flex items-center gap-2 px-6 pt-3 pb-2 border-b border-gray-100 bg-white">
           <button
-            onClick={() => setActiveSection('architecture')}
+            onClick={() => setActiveSection('faq')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
-              activeSection === 'architecture'
+              activeSection === 'faq'
                 ? 'bg-blue-50 text-blue-700 border border-blue-200'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <Server className="h-3.5 w-3.5" />
-            <span>Architecture & Data Flow</span>
+            <HelpCircle className="h-3.5 w-3.5 text-blue-600" />
+            <span>Frequently Asked Questions ({faqs.length})</span>
           </button>
 
           <button
-            onClick={() => setActiveSection('privacy')}
+            onClick={() => setActiveSection('architecture')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
-              activeSection === 'privacy'
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <Shield className="h-3.5 w-3.5" />
-            <span>Privacy & Cryptography</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSection('viva-qa')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
-              activeSection === 'viva-qa'
+              activeSection === 'architecture'
                 ? 'bg-purple-50 text-purple-700 border border-purple-200'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <HelpCircle className="h-3.5 w-3.5" />
-            <span>Evaluator & Viva Q&A (8)</span>
+            <Server className="h-3.5 w-3.5 text-purple-600" />
+            <span>System Architecture & Data Flow</span>
           </button>
         </div>
 
@@ -201,75 +201,34 @@ const TechnicalVivaModal = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {activeSection === 'privacy' && (
-            <div className="space-y-5 text-sm text-gray-700">
-              <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900">
-                <h4 className="font-bold flex items-center gap-2 text-sm mb-1">
-                  <Shield className="h-4 w-4 text-emerald-600" />
-                  Zero-Knowledge & Data Privacy Model
-                </h4>
-                <p className="text-xs text-emerald-800 leading-relaxed">
-                  In traditional multi-tenant storage, administrators or operators can inspect uploaded files. In our Drivora architecture, data privacy is cryptographically enforced rather than just policy-based.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <div className="p-4 rounded-xl border border-gray-200 bg-white space-y-2">
-                  <h5 className="font-bold text-gray-900 flex items-center gap-2 text-xs">
-                    <Key className="h-4 w-4 text-blue-600" />
-                    1. Ciphertext Storage Architecture
-                  </h5>
-                  <p className="text-xs text-gray-600 leading-relaxed">
-                    When user files are written to disk, they are saved as <code className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-800">&lt;uuid&gt;_&lt;filename&gt;.enc</code>. Opening the file in any text editor, hex viewer, or operating system explorer reveals only high-entropy random bytes.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl border border-gray-200 bg-white space-y-2">
-                  <h5 className="font-bold text-gray-900 flex items-center gap-2 text-xs">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                    2. Cryptographic Integrity Verification (Auth Tag)
-                  </h5>
-                  <p className="text-xs text-gray-600 leading-relaxed">
-                    AES-256-GCM appends a 16-byte authentication tag to every payload. If a rogue operator tampers with even a single bit of the file on disk, the GCM authentication check immediately fails during decryption, rejecting the corrupted payload.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl border border-gray-200 bg-white space-y-2">
-                  <h5 className="font-bold text-gray-900 flex items-center gap-2 text-xs">
-                    <FileCheck className="h-4 w-4 text-purple-600" />
-                    3. Ephemeral In-Memory Decryption
-                  </h5>
-                  <p className="text-xs text-gray-600 leading-relaxed">
-                    Decryption is never written back to disk. It streams directly through memory buffers to the authenticated HTTP response channel, eliminating temporary file exposure.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeSection === 'viva-qa' && (
+          {activeSection === 'faq' && (
             <div className="space-y-3">
               <p className="text-xs text-gray-500 mb-2">
-                Click on any question below to see the exact technical explanation for viva defense:
+                Click on any question below to see detailed answers:
               </p>
               {faqs.map((faq, idx) => (
                 <div
                   key={idx}
-                  className="rounded-xl border border-gray-200 bg-white overflow-hidden transition-all shadow-xs"
+                  className="rounded-xl border border-gray-200 bg-white overflow-hidden transition-all shadow-2xs hover:border-gray-300"
                 >
                   <button
                     onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
-                    className="w-full flex items-center justify-between p-4 text-left font-semibold text-xs text-gray-800 hover:bg-gray-50 transition-colors"
+                    className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left font-semibold text-xs sm:text-sm text-gray-800 hover:bg-gray-50/80 transition-colors gap-3"
                   >
-                    <span>{faq.q}</span>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-1.5 rounded-lg bg-gray-50 border border-gray-100 flex-shrink-0">
+                        {faq.icon}
+                      </div>
+                      <span className="text-gray-900 font-bold">{faq.q}</span>
+                    </div>
                     {openFaq === idx ? (
-                      <ChevronUp className="h-4 w-4 text-gray-400 flex-shrink-0 ml-2" />
+                      <ChevronUp className="h-4 w-4 text-gray-400 flex-shrink-0" />
                     ) : (
-                      <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0 ml-2" />
+                      <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
                     )}
                   </button>
                   {openFaq === idx && (
-                    <div className="p-4 pt-1 text-xs text-gray-600 border-t border-gray-100 bg-gray-50/50 leading-relaxed">
+                    <div className="p-4 pt-1 text-xs sm:text-sm text-gray-600 border-t border-gray-100 bg-gray-50/50 leading-relaxed pl-11">
                       {faq.a}
                     </div>
                   )}
@@ -286,7 +245,7 @@ const TechnicalVivaModal = ({ isOpen, onClose }) => {
             onClick={onClose}
             className="px-4 py-1.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
           >
-            Close Guide
+            Close FAQ
           </button>
         </div>
       </div>

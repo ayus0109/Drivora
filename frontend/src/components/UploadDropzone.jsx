@@ -18,6 +18,7 @@ const UploadDropzone = ({
   onCreateFolder,
   currentFolderId = null,
   currentFolderName = 'My Drive',
+  onToast,
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef(null);
@@ -79,6 +80,10 @@ const UploadDropzone = ({
         }
       }
 
+      if (onToast) {
+        onToast(`Preparing ${extractedEntries.length} file${extractedEntries.length > 1 ? 's' : ''} for upload...`, 'info');
+      }
+
       uploadQueue.enqueue(uploadPayload);
     } catch (err) {
       console.error('Error handling dropped items:', err);
@@ -94,7 +99,11 @@ const UploadDropzone = ({
   const handleFileSelect = (e) => {
     const selectedFiles = e.target.files;
     if (selectedFiles && selectedFiles.length > 0) {
-      const payload = Array.from(selectedFiles).map((file) => ({
+      const filesArray = Array.from(selectedFiles);
+      if (onToast) {
+        onToast(`Preparing ${filesArray.length} file${filesArray.length > 1 ? 's' : ''} for upload...`, 'info');
+      }
+      const payload = filesArray.map((file) => ({
         file,
         folderId: currentFolderId,
         folderName: currentFolderName,
@@ -110,6 +119,9 @@ const UploadDropzone = ({
     if (!selectedFiles || selectedFiles.length === 0) return;
 
     const filesArray = Array.from(selectedFiles);
+    if (onToast) {
+      onToast(`Scanning ${filesArray.length} file${filesArray.length > 1 ? 's' : ''} in folder...`, 'info');
+    }
     const uploadPayload = [];
 
     for (const file of filesArray) {
@@ -141,16 +153,19 @@ const UploadDropzone = ({
 
   return (
     <div className="space-y-3">
-      {/* Hidden Multi-file input */}
+      {/* Accessible Multi-file input (avoids mobile browser dropping change events) */}
       <input
         ref={fileInputRef}
         type="file"
         multiple
+        accept="*/*"
         onChange={handleFileSelect}
-        className="hidden"
+        className="sr-only opacity-0 absolute w-0 h-0 pointer-events-none"
+        aria-hidden="true"
+        tabIndex="-1"
       />
 
-      {/* Hidden Folder input with webkitdirectory */}
+      {/* Accessible Folder input with webkitdirectory */}
       <input
         ref={folderInputRef}
         type="file"
@@ -158,7 +173,9 @@ const UploadDropzone = ({
         directory=""
         multiple
         onChange={handleFolderSelect}
-        className="hidden"
+        className="sr-only opacity-0 absolute w-0 h-0 pointer-events-none"
+        aria-hidden="true"
+        tabIndex="-1"
       />
 
       {/* Main Dropzone Card */}
