@@ -120,6 +120,7 @@ const Dashboard = () => {
   });
 
   const uploadInputRef = useRef(null);
+  const handleFileUploadRef = useRef(null);
 
   // Full-Window Drag and Drop for external files (Google Drive standard)
   const [isWindowDragOver, setIsWindowDragOver] = useState(false);
@@ -158,7 +159,11 @@ const Dashboard = () => {
 
       const filesDropped = e.dataTransfer.files;
       if (filesDropped && filesDropped.length > 0) {
-        Array.from(filesDropped).forEach((file) => handleFileUpload(file));
+        Array.from(filesDropped).forEach((file) => {
+          if (handleFileUploadRef.current) {
+            handleFileUploadRef.current(file);
+          }
+        });
       }
     };
 
@@ -169,11 +174,11 @@ const Dashboard = () => {
 
     return () => {
       window.removeEventListener('dragenter', handleDragEnter);
-      window.removeEventListener('dragleave', handleWindowDragLeave);
+      window.removeEventListener('dragleave', handleDragLeave);
       window.removeEventListener('dragover', handleDragOver);
       window.removeEventListener('drop', handleDrop);
     };
-  }, [currentFolderId, activeTab, user]);
+  }, []);
 
   // Handle moving a file onto a folder via internal drag & drop
   const handleMoveFileToFolder = async (fileId, fileName, targetFolder) => {
@@ -275,15 +280,19 @@ const Dashboard = () => {
   };
 
   // Selection handlers
-  const toggleSelectFile = (fileId) => {
+  const toggleSelectFile = (fileOrId) => {
+    const id = typeof fileOrId === 'object' && fileOrId !== null ? fileOrId._id : fileOrId;
+    if (!id) return;
     setSelectedFileIds((prev) =>
-      prev.includes(fileId) ? prev.filter((id) => id !== fileId) : [...prev, fileId]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
 
-  const toggleSelectFolder = (folderId) => {
+  const toggleSelectFolder = (folderOrId) => {
+    const id = typeof folderOrId === 'object' && folderOrId !== null ? folderOrId._id : folderOrId;
+    if (!id) return;
     setSelectedFolderIds((prev) =>
-      prev.includes(folderId) ? prev.filter((id) => id !== folderId) : [...prev, folderId]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
 
@@ -393,6 +402,8 @@ const Dashboard = () => {
     }
   };
 
+  handleFileUploadRef.current = handleFileUpload;
+
   // Create Folder
   const handleCreateFolder = async (name) => {
     try {
@@ -423,7 +434,9 @@ const Dashboard = () => {
   };
 
   // Single Item Star Toggle
-  const handleToggleStarFile = async (fileId) => {
+  const handleToggleStarFile = async (fileOrId) => {
+    const fileId = typeof fileOrId === 'object' && fileOrId !== null ? fileOrId._id : fileOrId;
+    if (!fileId) return;
     try {
       const res = await api.patch(`/files/${fileId}/star`);
       addToast(res.data?.message || 'Starred updated.', 'info');
@@ -439,7 +452,9 @@ const Dashboard = () => {
     }
   };
 
-  const handleToggleStarFolder = async (folderId) => {
+  const handleToggleStarFolder = async (folderOrId) => {
+    const folderId = typeof folderOrId === 'object' && folderOrId !== null ? folderOrId._id : folderOrId;
+    if (!folderId) return;
     try {
       const res = await api.patch(`/folders/${folderId}/star`);
       addToast(res.data?.message || 'Starred updated.', 'info');

@@ -3,7 +3,7 @@ import { UploadCloud, FolderPlus, CheckCircle2, AlertCircle, FileUp, Sparkles, S
 
 const UploadDropzone = ({
   onUpload,
-  uploadStatus,
+  uploadStatus = {},
   onCreateFolder,
   currentFolderName = 'My Drive',
 }) => {
@@ -156,42 +156,42 @@ const UploadDropzone = ({
       </div>
 
       {/* Floating Progress Bar when Uploading */}
-      {uploadStatus.isUploading && (
+      {uploadStatus?.isUploading && (
         <div className="fixed bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-50 sm:w-96 rounded-2xl bg-white p-4 shadow-2xl border border-gray-100 animate-in slide-in-from-bottom-5">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-gray-800 truncate max-w-[200px]">
-              Uploading {uploadStatus.fileName}...
+              Uploading {uploadStatus?.fileName || 'file'}...
             </span>
             <span className="text-xs font-bold text-blue-600">
-              {uploadStatus.progress}%
+              {uploadStatus?.progress || 0}%
             </span>
           </div>
 
           <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
             <div
               className="bg-blue-600 h-2 rounded-full transition-all duration-200"
-              style={{ width: `${uploadStatus.progress}%` }}
+              style={{ width: `${uploadStatus?.progress || 0}%` }}
             ></div>
           </div>
         </div>
       )}
 
       {/* Toast Alert for upload errors or successes */}
-      {uploadStatus.message && (
+      {uploadStatus?.message && (
         <div
           className={`fixed bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-50 flex items-start gap-3 sm:w-96 rounded-2xl p-4 shadow-xl border animate-in slide-in-from-bottom-5 ${
-            uploadStatus.isError
+            uploadStatus?.isError
               ? 'bg-red-50 border-red-200 text-red-800'
               : 'bg-green-50 border-green-200 text-green-800'
           }`}
         >
-          {uploadStatus.isError ? (
+          {uploadStatus?.isError ? (
             <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
           ) : (
             <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
           )}
           <div className="flex-1 text-xs font-medium leading-relaxed">
-            {uploadStatus.message}
+            {uploadStatus?.message}
           </div>
         </div>
       )}

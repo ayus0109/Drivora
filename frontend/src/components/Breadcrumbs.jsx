@@ -8,7 +8,7 @@ const Breadcrumbs = ({ path = [], onNavigate }) => {
         const isLast = index === path.length - 1;
 
         return (
-          <React.Fragment key={item._id || 'root'}>
+          <React.Fragment key={item._id || `crumb-${index}`}>
             {index > 0 && (
               <ChevronRight className="h-4 w-4 text-gray-400 flex-shrink-0 mx-0.5" />
             )}

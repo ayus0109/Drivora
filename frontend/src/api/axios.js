@@ -27,9 +27,12 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
+      const requestUrl = error.config?.url || '';
       const isAuthRoute =
-        error.config.url.includes('/auth/login') ||
-        error.config.url.includes('/auth/signup');
+        requestUrl.includes('/auth/login') ||
+        requestUrl.includes('/auth/signup') ||
+        requestUrl.includes('/auth/google') ||
+        requestUrl.includes('/auth/verify-signup-otp');
 
       if (!isAuthRoute) {
         localStorage.removeItem('token');
