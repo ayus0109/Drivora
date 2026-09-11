@@ -1,0 +1,25 @@
+{
+  "name": "google-drive-cloud-storage",
+  "version": "1.0.0",
+  "description": "Google Drive Cloud Storage System with 15 GB quota, client-side AES-256-GCM encryption, and Google SSO.",
+  "scripts": {
+    "build": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend",
+    "start": "node backend/src/index.js",
+    "server": "npm run dev --prefix backend",
+    "client": "npm run dev --prefix frontend"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "google-drive",
+    "cloud-storage",
+    "aes-256-gcm",
+    "encryption",
+    "react",
+    "nodejs",
+    "mongodb"
+  ],
+  "author": "Ayush Phalak",
+  "license": "ISC"
+}
