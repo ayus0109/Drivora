@@ -40,15 +40,29 @@ const fileSchema = new mongoose.Schema(
       enum: ['firebase', 'local'],
       default: 'firebase',
     },
+    isTrash: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    trashedAt: {
+      type: Date,
+      default: null,
+    },
+    isStarred: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-// Compound index for querying files inside a folder for a specific user
-fileSchema.index({ owner: 1, folder: 1 });
-// Text index / compound index for search by filename
+// Compound indexes for high-performance querying
+fileSchema.index({ owner: 1, isTrash: 1, folder: 1 });
+fileSchema.index({ owner: 1, isStarred: 1 });
 fileSchema.index({ owner: 1, name: 1 });
 
 module.exports = mongoose.model('File', fileSchema);

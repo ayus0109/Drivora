@@ -20,13 +20,28 @@ const folderSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    isTrash: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    trashedAt: {
+      type: Date,
+      default: null,
+    },
+    isStarred: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-// Compound index for querying folders inside a parent folder for a specific user
-folderSchema.index({ owner: 1, parent: 1 });
+// Compound indexes for querying folders
+folderSchema.index({ owner: 1, isTrash: 1, parent: 1 });
+folderSchema.index({ owner: 1, isStarred: 1 });
 
 module.exports = mongoose.model('Folder', folderSchema);

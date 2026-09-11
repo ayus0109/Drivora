@@ -4,6 +4,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const morgan = require('morgan');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const config = require('./config');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
@@ -14,6 +16,14 @@ const activityRoutes = require('./routes/activity');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
+
+// Security HTTP headers
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  })
+);
 
 // Disable ETags to prevent stale 304 caching of user storage quotas
 app.set('etag', false);
@@ -34,6 +44,18 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
+// Production rate limiter for Auth to prevent brute force
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 mins
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many authentication attempts from this IP, please try again after 15 minutes.',
+  },
+});
+
 // Health check route
 app.get('/api/health', (req, res) => {
   res.json({
@@ -44,7 +66,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Mount Routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/folders', folderRoutes);
 app.use('/api/files', fileRoutes);

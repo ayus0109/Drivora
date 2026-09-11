@@ -1,10 +1,10 @@
 import React from 'react';
 import { formatBytes } from '../utils/formatBytes';
-import { Database, AlertCircle } from 'lucide-react';
+import { Database, AlertCircle, ChevronRight, PieChart } from 'lucide-react';
 
 const FIFTEEN_GB = 16106127360; // 15 GB (Google Drive standard)
 
-const StorageBar = ({ usedBytes, usedStorageBytes, quotaBytes = FIFTEEN_GB }) => {
+const StorageBar = ({ usedBytes, usedStorageBytes, quotaBytes = FIFTEEN_GB, onClick }) => {
   // Support both prop naming conventions to prevent any undefined mismatch
   const bytes =
     usedBytes !== undefined
@@ -16,11 +16,7 @@ const StorageBar = ({ usedBytes, usedStorageBytes, quotaBytes = FIFTEEN_GB }) =>
   const quota = Number(quotaBytes) > 0 ? Number(quotaBytes) : FIFTEEN_GB;
   const rawPercentage = (bytes / quota) * 100;
 
-  // Display percentage with professional micro-precision (Google Drive standard):
-  // When bytes is 0: '0%'
-  // When bytes > 0 and rawPercentage < 0.01: '< 0.01%'
-  // When bytes > 0 and rawPercentage < 1: `${rawPercentage.toFixed(2)}%` (e.g. 7.34 MB on 15 GB displays 0.05%)
-  // When rawPercentage >= 1: `${rawPercentage.toFixed(1)}%` (e.g. 150 MB on 15 GB displays 1.0%)
+  // Display percentage with professional micro-precision (Google Drive standard)
   const displayPercentage =
     bytes === 0
       ? '0%'
@@ -46,23 +42,36 @@ const StorageBar = ({ usedBytes, usedStorageBytes, quotaBytes = FIFTEEN_GB }) =>
     : 'bg-blue-600';
 
   return (
-    <div className="rounded-2xl bg-white p-4 border border-gray-200/80 shadow-xs select-none">
+    <div
+      onClick={onClick}
+      className={`group rounded-2xl bg-white p-4 border border-gray-200/80 shadow-xs select-none transition-all ${
+        onClick
+          ? 'cursor-pointer hover:border-blue-300 hover:shadow-sm hover:bg-slate-50/50'
+          : ''
+      }`}
+      title={onClick ? 'Click to view detailed storage breakdown' : undefined}
+    >
       <div className="flex items-center justify-between text-xs font-bold text-gray-700 mb-2">
         <div className="flex items-center gap-1.5">
           <Database className="h-3.5 w-3.5 text-blue-600" />
           <span>Storage Usage</span>
         </div>
-        <span
-          className={`font-bold ${
-            isExceededOrCritical
-              ? 'text-red-600'
-              : isNearLimit
-              ? 'text-amber-600'
-              : 'text-blue-600'
-          }`}
-        >
-          {displayPercentage}
-        </span>
+        <div className="flex items-center gap-1">
+          <span
+            className={`font-bold ${
+              isExceededOrCritical
+                ? 'text-red-600'
+                : isNearLimit
+                ? 'text-amber-600'
+                : 'text-blue-600'
+            }`}
+          >
+            {displayPercentage}
+          </span>
+          {onClick && (
+            <ChevronRight className="h-3.5 w-3.5 text-gray-400 group-hover:text-blue-600 transition-colors" />
+          )}
+        </div>
       </div>
 
       <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
@@ -72,9 +81,16 @@ const StorageBar = ({ usedBytes, usedStorageBytes, quotaBytes = FIFTEEN_GB }) =>
         ></div>
       </div>
 
-      <p className="text-xs text-gray-500 mt-2 font-semibold">
-        {formatBytes(bytes)} of {formatBytes(quota)} used
-      </p>
+      <div className="flex items-center justify-between mt-2">
+        <p className="text-xs text-gray-500 font-semibold">
+          {formatBytes(bytes)} of {formatBytes(quota)} used
+        </p>
+        {onClick && (
+          <span className="text-[10px] text-blue-600 font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+            <PieChart className="h-3 w-3" /> Breakdown
+          </span>
+        )}
+      </div>
 
       {isExceededOrCritical && (
         <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-red-600 font-medium">

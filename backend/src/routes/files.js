@@ -179,26 +179,68 @@ router.get('/:id/download', async (req, res, next) => {
 
 /**
  * GET /api/files
- * List files with search, sort, and folder filtering
+ * List files with search, sort, folder, trash, starred, and category filtering
  */
 router.get('/', async (req, res, next) => {
   try {
-    const { folder, search, sort = 'createdAt', order = 'desc' } = req.query;
+    const {
+      folder,
+      search,
+      sort = 'createdAt',
+      order = 'desc',
+      trash,
+      starred,
+      category,
+    } = req.query;
 
     const query = { owner: req.userId };
+
+    // View filter: Trash vs Starred vs Folder
+    if (trash === 'true') {
+      query.isTrash = true;
+    } else {
+      query.isTrash = false;
+
+      if (starred === 'true') {
+        query.isStarred = true;
+      } else if (folder !== undefined && folder !== '') {
+        if (folder === 'root' || folder === 'null') {
+          query.folder = null;
+        } else {
+          query.folder = folder;
+        }
+      } else if (!search) {
+        query.folder = null;
+      }
+    }
 
     if (search && search.trim()) {
       query.name = { $regex: search.trim(), $options: 'i' };
     }
 
-    if (folder !== undefined && folder !== '') {
-      if (folder === 'root' || folder === 'null') {
-        query.folder = null;
-      } else {
-        query.folder = folder;
+    // Category filter
+    if (category && category !== 'all') {
+      if (category === 'documents') {
+        query.$or = [
+          { mimeType: /pdf|word|text|document|presentation|sheet/i },
+          { name: /\.(pdf|doc|docx|txt|md|csv|xlsx|ppt|pptx)$/i },
+        ];
+      } else if (category === 'images') {
+        query.$or = [
+          { mimeType: /^image\//i },
+          { name: /\.(png|jpg|jpeg|gif|webp|svg|bmp)$/i },
+        ];
+      } else if (category === 'media') {
+        query.$or = [
+          { mimeType: /^(video|audio)\//i },
+          { name: /\.(mp4|webm|mkv|mp3|wav|ogg)$/i },
+        ];
+      } else if (category === 'archives') {
+        query.$or = [
+          { mimeType: /zip|tar|gzip|rar|7z/i },
+          { name: /\.(zip|tar|gz|rar|7z)$/i },
+        ];
       }
-    } else if (!search) {
-      query.folder = null;
     }
 
     const sortField = ['name', 'createdAt', 'sizeBytes'].includes(sort)
@@ -277,6 +319,7 @@ router.patch('/:id', async (req, res, next) => {
       _id: { $ne: file._id },
       owner: req.userId,
       folder: file.folder,
+      isTrash: false,
       name: trimmedName,
     });
 
@@ -301,10 +344,10 @@ router.patch('/:id', async (req, res, next) => {
 });
 
 /**
- * DELETE /api/files/:id
- * Delete file from storage + database + reclaim quota
+ * PATCH /api/files/:id/star
+ * Toggle Starred status
  */
-router.delete('/:id', async (req, res, next) => {
+router.patch('/:id/star', async (req, res, next) => {
   try {
     const file = await File.findOne({
       _id: req.params.id,
@@ -318,10 +361,299 @@ router.delete('/:id', async (req, res, next) => {
       });
     }
 
-    // Delete from storage (cloud or local)
-    await storageService.deleteStoredFile(file);
+    file.isStarred = !file.isStarred;
+    await file.save();
 
-    // Reclaim storage quota (clamped to 0)
+    res.json({
+      success: true,
+      message: file.isStarred ? 'Starred file' : 'Removed from Starred',
+      isStarred: file.isStarred,
+      file,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * PATCH /api/files/:id/trash
+ * Move file to Trash (Soft Delete)
+ */
+router.patch('/:id/trash', async (req, res, next) => {
+  try {
+    const file = await File.findOne({
+      _id: req.params.id,
+      owner: req.userId,
+    });
+
+    if (!file) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found.',
+      });
+    }
+
+    file.isTrash = true;
+    file.trashedAt = new Date();
+    await file.save();
+
+    res.json({
+      success: true,
+      message: `"${file.name}" moved to Trash.`,
+      file,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * PATCH /api/files/:id/restore
+ * Restore file from Trash
+ */
+router.patch('/:id/restore', async (req, res, next) => {
+  try {
+    const file = await File.findOne({
+      _id: req.params.id,
+      owner: req.userId,
+    });
+
+    if (!file) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found.',
+      });
+    }
+
+    file.isTrash = false;
+    file.trashedAt = null;
+    await file.save();
+
+    res.json({
+      success: true,
+      message: `"${file.name}" restored successfully.`,
+      file,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * PATCH /api/files/:id/move
+ * Move file to another folder or root
+ */
+router.patch('/:id/move', async (req, res, next) => {
+  try {
+    const { targetFolderId } = req.body;
+
+    const file = await File.findOne({
+      _id: req.params.id,
+      owner: req.userId,
+    });
+
+    if (!file) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found.',
+      });
+    }
+
+    let newFolderId = null;
+    if (targetFolderId && targetFolderId !== 'root' && targetFolderId !== 'null') {
+      const folderDoc = await Folder.findOne({
+        _id: targetFolderId,
+        owner: req.userId,
+        isTrash: false,
+      });
+
+      if (!folderDoc) {
+        return res.status(404).json({
+          success: false,
+          message: 'Target folder not found.',
+        });
+      }
+      newFolderId = folderDoc._id;
+    }
+
+    file.folder = newFolderId;
+    await file.save();
+
+    res.json({
+      success: true,
+      message: `"${file.name}" moved successfully.`,
+      file,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/files/bulk-trash
+ * Move multiple files to Trash
+ */
+router.post('/bulk-trash', async (req, res, next) => {
+  try {
+    const { fileIds } = req.body;
+
+    if (!Array.isArray(fileIds) || fileIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No files provided.',
+      });
+    }
+
+    await File.updateMany(
+      { _id: { $in: fileIds }, owner: req.userId },
+      { $set: { isTrash: true, trashedAt: new Date() } }
+    );
+
+    res.json({
+      success: true,
+      message: `${fileIds.length} item(s) moved to Trash.`,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/files/bulk-restore
+ * Restore multiple files from Trash
+ */
+router.post('/bulk-restore', async (req, res, next) => {
+  try {
+    const { fileIds } = req.body;
+
+    if (!Array.isArray(fileIds) || fileIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No files provided.',
+      });
+    }
+
+    await File.updateMany(
+      { _id: { $in: fileIds }, owner: req.userId },
+      { $set: { isTrash: false, trashedAt: null } }
+    );
+
+    res.json({
+      success: true,
+      message: `${fileIds.length} item(s) restored.`,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/files/bulk-star
+ * Star/Unstar multiple files
+ */
+router.post('/bulk-star', async (req, res, next) => {
+  try {
+    const { fileIds, isStarred } = req.body;
+
+    if (!Array.isArray(fileIds) || fileIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No files provided.',
+      });
+    }
+
+    await File.updateMany(
+      { _id: { $in: fileIds }, owner: req.userId },
+      { $set: { isStarred: !!isStarred } }
+    );
+
+    res.json({
+      success: true,
+      message: `${fileIds.length} item(s) updated.`,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * DELETE /api/files/trash/empty
+ * Permanently empty all trashed files & folders
+ */
+router.delete('/trash/empty', async (req, res, next) => {
+  try {
+    const trashedFiles = await File.find({
+      owner: req.userId,
+      isTrash: true,
+    });
+
+    let reclaimedBytes = 0;
+    for (const file of trashedFiles) {
+      try {
+        await storageService.deleteStoredFile(file);
+      } catch (err) {
+        console.warn('Storage purge error for file:', file.name, err.message);
+      }
+      reclaimedBytes += file.sizeBytes || 0;
+    }
+
+    await File.deleteMany({ owner: req.userId, isTrash: true });
+    await Folder.deleteMany({ owner: req.userId, isTrash: true });
+
+    let updatedUser = null;
+    if (reclaimedBytes > 0) {
+      const user = await User.findById(req.userId);
+      if (user) {
+        user.usedStorageBytes = Math.max(0, user.usedStorageBytes - reclaimedBytes);
+        await user.save();
+        updatedUser = user;
+      }
+    } else {
+      updatedUser = await User.findById(req.userId);
+    }
+
+    res.json({
+      success: true,
+      message: 'Trash emptied successfully. All items deleted permanently.',
+      reclaimedBytes,
+      storage: updatedUser
+        ? {
+            usedStorageBytes: updatedUser.usedStorageBytes,
+            quotaBytes: updatedUser.quotaBytes,
+          }
+        : undefined,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * DELETE /api/files/:id/permanent
+ * Permanently purge file from storage + database + reclaim quota
+ */
+router.delete('/:id/permanent', async (req, res, next) => {
+  try {
+    const file = await File.findOne({
+      _id: req.params.id,
+      owner: req.userId,
+    });
+
+    if (!file) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found.',
+      });
+    }
+
+    // Delete from storage
+    try {
+      await storageService.deleteStoredFile(file);
+    } catch (err) {
+      console.warn('Storage delete warning:', err.message);
+    }
+
+    // Reclaim storage quota
     let updatedUser = null;
     if (file.sizeBytes > 0) {
       const user = await User.findById(req.userId);
@@ -338,7 +670,7 @@ router.delete('/:id', async (req, res, next) => {
 
     res.json({
       success: true,
-      message: 'File deleted successfully.',
+      message: 'File permanently deleted.',
       reclaimedBytes: file.sizeBytes,
       storage: updatedUser
         ? {
@@ -352,4 +684,71 @@ router.delete('/:id', async (req, res, next) => {
   }
 });
 
+/**
+ * DELETE /api/files/:id
+ * Default delete: Soft delete to Trash (or permanent if query permanent=true)
+ */
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const file = await File.findOne({
+      _id: req.params.id,
+      owner: req.userId,
+    });
+
+    if (!file) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found.',
+      });
+    }
+
+    if (req.query.permanent === 'true') {
+      // Permanent purge
+      try {
+        await storageService.deleteStoredFile(file);
+      } catch (err) {}
+
+      let updatedUser = null;
+      if (file.sizeBytes > 0) {
+        const user = await User.findById(req.userId);
+        if (user) {
+          user.usedStorageBytes = Math.max(0, user.usedStorageBytes - file.sizeBytes);
+          await user.save();
+          updatedUser = user;
+        }
+      } else {
+        updatedUser = await User.findById(req.userId);
+      }
+
+      await File.deleteOne({ _id: file._id });
+
+      return res.json({
+        success: true,
+        message: 'File permanently deleted.',
+        reclaimedBytes: file.sizeBytes,
+        storage: updatedUser
+          ? {
+              usedStorageBytes: updatedUser.usedStorageBytes,
+              quotaBytes: updatedUser.quotaBytes,
+            }
+          : undefined,
+      });
+    }
+
+    // Standard Soft-Delete (Move to Trash)
+    file.isTrash = true;
+    file.trashedAt = new Date();
+    await file.save();
+
+    res.json({
+      success: true,
+      message: `"${file.name}" moved to Trash.`,
+      file,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
+
