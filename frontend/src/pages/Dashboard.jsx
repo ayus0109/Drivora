@@ -55,6 +55,7 @@ import {
   Check,
   Sparkles,
   HelpCircle,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 const FIFTEEN_GB = 16106127360; // 15 GB (Google Drive standard)
@@ -130,6 +131,7 @@ const Dashboard = () => {
     isError: false,
   });
 
+  const mobilePhotoInputRef = useRef(null);
   const uploadInputRef = useRef(null);
   const handleFileUploadRef = useRef(null);
 
@@ -701,30 +703,63 @@ const Dashboard = () => {
       {/* Toast Notifications */}
       <Toast toasts={toasts} onDismiss={removeToast} />
 
-      {/* Accessible DOM-rendered multi-file input (avoids mobile browsers dropping change events) */}
-      {/* Accessible DOM-rendered multi-file input (avoids mobile browsers dropping change events) */}
+      {/* 1. Accessible Photo & Video picker input (mobile native gallery/camera) */}
+      <input
+        ref={mobilePhotoInputRef}
+        type="file"
+        accept="image/*,video/*"
+        multiple
+        onChange={(e) => {
+          try {
+            const filesList = e.target.files;
+            if (!filesList || filesList.length === 0) return;
+            const selectedFiles = Array.from(filesList);
+            addToast(`Received ${selectedFiles.length} item${selectedFiles.length > 1 ? 's' : ''}. Starting upload...`, 'info');
+            const payload = selectedFiles.map((file) => ({
+              file,
+              folderId: currentFolderIdRef.current,
+              folderName: breadcrumbsRef.current[breadcrumbsRef.current.length - 1]?.name || 'My Drive',
+            }));
+            uploadQueue.enqueue(payload);
+          } catch (err) {
+            console.error('Photo upload error:', err);
+            addToast('Upload error: ' + err.message, 'error');
+          }
+        }}
+        onClick={(e) => {
+          e.currentTarget.value = null;
+        }}
+        className="fixed -top-full -left-full opacity-0 w-1 h-1"
+        aria-hidden="true"
+        tabIndex="-1"
+      />
+
+      {/* 2. Accessible multi-file input (All formats) */}
       <input
         ref={uploadInputRef}
         type="file"
         multiple
         onChange={(e) => {
-          const filesList = e.target.files;
-          if (!filesList || filesList.length === 0) return;
-          const selectedFiles = Array.from(filesList);
-          addToast(`Received ${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''}. Starting upload...`, 'info');
-          const payload = selectedFiles.map((file) => ({
-            file,
-            folderId: currentFolderIdRef.current,
-            folderName: breadcrumbsRef.current[breadcrumbsRef.current.length - 1]?.name || 'My Drive',
-          }));
-          uploadQueue.enqueue(payload);
-          setTimeout(() => {
-            try {
-              if (e.target) e.target.value = '';
-            } catch (_) {}
-          }, 200);
+          try {
+            const filesList = e.target.files;
+            if (!filesList || filesList.length === 0) return;
+            const selectedFiles = Array.from(filesList);
+            addToast(`Received ${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''}. Starting upload...`, 'info');
+            const payload = selectedFiles.map((file) => ({
+              file,
+              folderId: currentFolderIdRef.current,
+              folderName: breadcrumbsRef.current[breadcrumbsRef.current.length - 1]?.name || 'My Drive',
+            }));
+            uploadQueue.enqueue(payload);
+          } catch (err) {
+            console.error('File upload error:', err);
+            addToast('Upload error: ' + err.message, 'error');
+          }
         }}
-        className="fixed -top-full -left-full opacity-0 w-1 h-1 pointer-events-none"
+        onClick={(e) => {
+          e.currentTarget.value = null;
+        }}
+        className="fixed -top-full -left-full opacity-0 w-1 h-1"
         aria-hidden="true"
         tabIndex="-1"
       />
@@ -903,13 +938,24 @@ const Dashboard = () => {
               <div className="space-y-2 mb-5">
                 <button
                   onClick={() => {
-                    uploadInputRef.current?.click();
-                    setTimeout(() => setIsMobileDrawerOpen(false), 200);
+                    setIsMobileDrawerOpen(false);
+                    setTimeout(() => mobilePhotoInputRef.current?.click(), 80);
                   }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 active:scale-95 text-white font-bold text-xs shadow-md shadow-blue-600/20"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 active:scale-95 text-white font-bold text-xs shadow-md shadow-blue-600/20 transition-all cursor-pointer"
                 >
-                  <Plus className="h-4 w-4 stroke-[2.5]" />
-                  <span>Upload File</span>
+                  <ImageIcon className="h-4 w-4 stroke-[2.4]" />
+                  <span>Upload Photos & Videos</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsMobileDrawerOpen(false);
+                    setTimeout(() => uploadInputRef.current?.click(), 80);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 active:scale-95 text-gray-700 font-bold text-xs shadow-2xs transition-all cursor-pointer"
+                >
+                  <Plus className="h-4 w-4 text-gray-500 stroke-[2.5]" />
+                  <span>Upload Any File</span>
                 </button>
 
                 <button
@@ -917,9 +963,9 @@ const Dashboard = () => {
                     setIsMobileDrawerOpen(false);
                     setIsCreateFolderOpen(true);
                   }}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white active:scale-95 text-gray-700 font-bold text-sm shadow-2xs"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 active:scale-95 text-gray-700 font-bold text-xs shadow-2xs transition-all cursor-pointer"
                 >
-                  <FolderPlus className="h-4.5 w-4.5 text-gray-500" />
+                  <FolderPlus className="h-4 w-4 text-gray-500" />
                   <span>New Folder</span>
                 </button>
               </div>

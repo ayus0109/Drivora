@@ -57,8 +57,12 @@ const FilePreviewModal = ({ file, isOpen, onClose, onDownload, onShare, initialT
       name.endsWith('.wav') ||
       name.endsWith('.pdf');
 
-    // Video, audio, and PDF can stream directly via native Range requests without waiting for full blob download
-    if (isMediaOrPdf) {
+    const isImage =
+      mime.startsWith('image/') ||
+      name.match(/\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i);
+
+    // Video, audio, PDF, and images can stream directly via native requests without waiting for full blob download
+    if (isMediaOrPdf || isImage) {
       setIsLoading(false);
       setLoadError(null);
       return;
@@ -386,8 +390,8 @@ const FilePreviewModal = ({ file, isOpen, onClose, onDownload, onShare, initialT
               className="w-full h-full border-0 bg-white"
             />
           </div>
-        ) : isImage && blobUrl ? (
-          /* IMAGE VIEWER WITH ORIGINAL QUALITY TOGGLE */
+        ) : isImage ? (
+          /* IMAGE VIEWER WITH ORIGINAL QUALITY TOGGLE - Streams immediately */
           <div className="relative w-full h-full flex items-center justify-center p-2 overflow-auto">
             <div className="absolute top-3 right-3 z-20 flex items-center gap-2 bg-gray-900/80 backdrop-blur-sm px-2.5 py-1.5 rounded-xl border border-gray-800 text-xs text-gray-300">
               <button
@@ -401,7 +405,7 @@ const FilePreviewModal = ({ file, isOpen, onClose, onDownload, onShare, initialT
               </button>
             </div>
             <img
-              src={blobUrl}
+              src={blobUrl || directStreamUrl}
               alt={file.name}
               loading="eager"
               decoding="async"

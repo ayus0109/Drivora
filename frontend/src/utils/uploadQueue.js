@@ -110,24 +110,51 @@ class UploadQueue {
   // Enqueue single or multiple files
   enqueue(filesWithMetadata) {
     const items = Array.isArray(filesWithMetadata) ? filesWithMetadata : [filesWithMetadata];
+    if (items.length === 0) return;
+
+    // Count name occurrences to disambiguate generic mobile camera names (e.g. image.jpg on iOS)
+    const nameCounts = new Map();
+    items.forEach((entry) => {
+      const f = entry.file || entry;
+      const rawName = f.name || 'photo.jpg';
+      nameCounts.set(rawName, (nameCounts.get(rawName) || 0) + 1);
+    });
+
+    const seenIndices = new Map();
 
     const newEntries = items.map((entry) => {
       const file = entry.file || entry;
       const folderId = entry.folderId || null;
       const folderName = entry.folderName || null;
+      const originalName = file.name || `photo_${Date.now()}.jpg`;
+
+      let finalName = originalName;
+      // If multiple items in this batch share the same name (common in mobile photo library pickers)
+      if (nameCounts.get(originalName) > 1) {
+        const idx = (seenIndices.get(originalName) || 0) + 1;
+        seenIndices.set(originalName, idx);
+        const lastDot = originalName.lastIndexOf('.');
+        if (lastDot !== -1) {
+          const base = originalName.substring(0, lastDot);
+          const ext = originalName.substring(lastDot);
+          finalName = `${base} (${idx})${ext}`;
+        } else {
+          finalName = `${originalName} (${idx})`;
+        }
+      }
 
       return {
-        id: 'up_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        id: 'up_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8) + '_' + Math.floor(Math.random() * 10000),
         file,
-        name: file.name,
-        size: file.size,
+        name: finalName,
+        size: file.size || 0,
         mimeType: file.type || 'application/octet-stream',
         folderId,
         folderName,
         status: 'queued', // 'queued' | 'uploading' | 'completed' | 'error'
         progress: 0,
         error: null,
-        cancelTokenSource: null,
+        retries: 0,
       };
     });
 
@@ -159,7 +186,8 @@ class UploadQueue {
   async uploadItem(item) {
     try {
       const formData = new FormData();
-      formData.append('file', item.file);
+      // Pass disambiguated file name as third argument so Multer preserves unique name
+      formData.append('file', item.file, item.name);
       if (item.folderId && item.folderId !== 'root') {
         formData.append('folderId', item.folderId);
       }
@@ -184,14 +212,13 @@ class UploadQueue {
         this.triggerSync();
       }
     } catch (err) {
-      // Automatic retry for transient mobile network/cellular socket drops (up to 2 retries)
+      // Automatic retry for transient mobile network/cellular socket drops (up to 3 retries)
       item.retries = (item.retries || 0) + 1;
       const isQuotaError = err.response?.status === 413 || err.response?.data?.message?.toLowerCase().includes('quota');
-      if (item.retries <= 2 && !isQuotaError) {
+      if (item.retries <= 3 && !isQuotaError) {
         item.status = 'queued';
         item.progress = 0;
-        this.activeCount = Math.max(0, this.activeCount - 1);
-        this.notify(true);
+        // Schedule next retry with progressive backoff
         setTimeout(() => this.processQueue(), 400 * item.retries);
         return;
       }
