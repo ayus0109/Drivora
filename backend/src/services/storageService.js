@@ -3,7 +3,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { Readable } = require('stream');
 const { v4: uuidv4 } = require('uuid');
-const { bucket, isFirebaseInitialized } = require('../config/firebase');
+const mongoose = require('mongoose');
+const { bucket: firebaseBucket, isFirebaseInitialized } = require('../config/firebase');
 const config = require('../config');
 
 const UPLOADS_DIR = path.resolve(__dirname, '../../uploads');
@@ -11,6 +12,24 @@ const UPLOADS_DIR = path.resolve(__dirname, '../../uploads');
 // Ensure local uploads directory exists
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
+let gridFSBucketInstance = null;
+
+/**
+ * Get or initialize MongoDB Atlas GridFSBucket for portable encrypted cloud storage
+ */
+function getGridFSBucket() {
+  if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+    throw new Error('Database connection is not ready for cloud storage operations.');
+  }
+  if (!gridFSBucketInstance || gridFSBucketInstance.s.db !== mongoose.connection.db) {
+    const GridFSBucket = mongoose.mongo.GridFSBucket;
+    gridFSBucketInstance = new GridFSBucket(mongoose.connection.db, {
+      bucketName: 'encrypted_vault',
+    });
+  }
+  return gridFSBucketInstance;
 }
 
 /**
@@ -58,79 +77,148 @@ function decryptBuffer(encryptedBuffer, userId) {
 }
 
 /**
- * Upload a file with AES-256-GCM encryption at rest
+ * Upload a file with AES-256-GCM encryption at rest.
+ * Stores primarily into MongoDB Atlas Cloud GridFS so files are 100% portable across any PC/device.
  */
 async function uploadFile({ buffer, originalname, mimetype, size, userId }) {
   const sanitizedName = originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
   const uniqueKey = `${uuidv4()}_${sanitizedName}.enc`;
 
-  // Encrypt file buffer before writing to cloud or disk
+  // Encrypt file buffer before storing
   const encryptedBuffer = encryptBuffer(buffer, userId);
 
-  // Try Firebase Storage first if initialized
-  if (isFirebaseInitialized && bucket) {
+  try {
+    // Primary: Store directly in MongoDB Atlas Cloud GridFS
+    const gfsBucket = getGridFSBucket();
+    const uploadStream = gfsBucket.openUploadStream(uniqueKey, {
+      metadata: {
+        originalname,
+        mimetype,
+        userId: userId.toString(),
+        encrypted: 'AES-256-GCM',
+        sizeBytes: size,
+        uploadedAt: new Date(),
+      },
+    });
+
+    await new Promise((resolve, reject) => {
+      Readable.from(encryptedBuffer)
+        .pipe(uploadStream)
+        .on('finish', resolve)
+        .on('error', reject);
+    });
+
+    const gridfsId = uploadStream.id;
+    console.log(`🔒 [AES-256-GCM] Encrypted & stored in MongoDB Atlas Cloud GridFS: ${uniqueKey} (ID: ${gridfsId})`);
+
+    // Keep optional local cache on this machine
     try {
-      const cloudPath = `users/${userId}/${uniqueKey}`;
-      const cloudFile = bucket.file(cloudPath);
-
-      await cloudFile.save(encryptedBuffer, {
-        metadata: {
-          contentType: 'application/octet-stream',
-          metadata: {
-            originalName: originalname,
-            uploadedBy: userId,
-            encrypted: 'AES-256-GCM',
-          },
-        },
-        resumable: false,
-      });
-
-      console.log(`🔒 [AES-256-GCM] Encrypted & uploaded to Firebase: ${cloudPath}`);
-      return {
-        storageProvider: 'firebase',
-        path: cloudPath,
-      };
-    } catch (firebaseErr) {
-      console.warn(
-        `⚠️ Firebase upload failed (${firebaseErr.message}). Falling back to local encrypted storage.`
-      );
+      const userUploadDir = path.join(UPLOADS_DIR, userId.toString());
+      if (!fs.existsSync(userUploadDir)) fs.mkdirSync(userUploadDir, { recursive: true });
+      fs.writeFileSync(path.join(userUploadDir, uniqueKey), encryptedBuffer);
+    } catch (e) {
+      // Local cache failure is non-fatal
     }
+
+    return {
+      storageProvider: 'gridfs',
+      gridfsId,
+      path: `gridfs://${uniqueKey}`,
+    };
+  } catch (cloudErr) {
+    console.warn(`⚠️ Cloud GridFS upload failed (${cloudErr.message}). Falling back to local storage.`);
+
+    // Local filesystem fallback
+    const userUploadDir = path.join(UPLOADS_DIR, userId.toString());
+    if (!fs.existsSync(userUploadDir)) {
+      fs.mkdirSync(userUploadDir, { recursive: true });
+    }
+
+    const localFilePath = path.join(userUploadDir, uniqueKey);
+    fs.writeFileSync(localFilePath, encryptedBuffer);
+
+    const relativePath = path.join('uploads', userId.toString(), uniqueKey).replace(/\\/g, '/');
+    console.log(`🔒 [AES-256-GCM] Encrypted & stored locally: ${relativePath}`);
+
+    return {
+      storageProvider: 'local',
+      gridfsId: null,
+      path: relativePath,
+    };
   }
-
-  // Local filesystem encrypted storage fallback
-  const userUploadDir = path.join(UPLOADS_DIR, userId);
-  if (!fs.existsSync(userUploadDir)) {
-    fs.mkdirSync(userUploadDir, { recursive: true });
-  }
-
-  const localFilePath = path.join(userUploadDir, uniqueKey);
-  fs.writeFileSync(localFilePath, encryptedBuffer);
-
-  const relativePath = path.join('uploads', userId, uniqueKey).replace(/\\/g, '/');
-  console.log(`🔒 [AES-256-GCM] Encrypted & stored locally: ${relativePath}`);
-
-  return {
-    storageProvider: 'local',
-    path: relativePath,
-  };
 }
 
 /**
- * Get decrypted download stream for a file
+ * Get decrypted download stream for a file.
+ * Handles GridFS cloud storage, Firebase, and legacy local storage with auto-migration to cloud.
  */
 async function getFileDownloadStream(fileDoc) {
   const ownerId = fileDoc.owner ? fileDoc.owner.toString() : '';
 
-  if (fileDoc.storageProvider === 'firebase' && bucket) {
-    const cloudFile = bucket.file(fileDoc.firebasePath);
-    const [exists] = await cloudFile.exists();
-    if (!exists) {
-      throw new Error('File not found in cloud storage.');
-    }
+  // 1. Cloud GridFS Storage (Primary)
+  if (fileDoc.storageProvider === 'gridfs' || fileDoc.gridfsId) {
+    try {
+      const gfsBucket = getGridFSBucket();
+      const gridId =
+        fileDoc.gridfsId instanceof mongoose.Types.ObjectId
+          ? fileDoc.gridfsId
+          : new mongoose.Types.ObjectId(fileDoc.gridfsId);
 
-    const [encryptedBuffer] = await cloudFile.download();
+      const downloadStream = gfsBucket.openDownloadStream(gridId);
+      const chunks = [];
+      for await (const chunk of downloadStream) {
+        chunks.push(chunk);
+      }
+      const encryptedBuffer = Buffer.concat(chunks);
+      const decryptedBuffer = decryptBuffer(encryptedBuffer, ownerId);
+      const stream = Readable.from(decryptedBuffer);
+
+      return {
+        stream,
+        buffer: decryptedBuffer,
+        size: decryptedBuffer.length,
+        mimeType: fileDoc.mimeType,
+        filename: fileDoc.name,
+      };
+    } catch (gridErr) {
+      console.warn(`⚠️ GridFS fetch error for ${fileDoc.name} (${gridErr.message}), checking fallbacks...`);
+    }
+  }
+
+  // 2. Firebase Storage (if available)
+  if (fileDoc.storageProvider === 'firebase' && isFirebaseInitialized && firebaseBucket) {
+    try {
+      const cloudFile = firebaseBucket.file(fileDoc.firebasePath);
+      const [exists] = await cloudFile.exists();
+      if (exists) {
+        const [encryptedBuffer] = await cloudFile.download();
+        const decryptedBuffer = decryptBuffer(encryptedBuffer, ownerId);
+        const stream = Readable.from(decryptedBuffer);
+
+        return {
+          stream,
+          buffer: decryptedBuffer,
+          size: decryptedBuffer.length,
+          mimeType: fileDoc.mimeType,
+          filename: fileDoc.name,
+        };
+      }
+    } catch (fbErr) {
+      console.warn(`⚠️ Firebase download error: ${fbErr.message}`);
+    }
+  }
+
+  // 3. Local filesystem storage (Legacy)
+  const fullPath = path.resolve(__dirname, '../../', fileDoc.firebasePath || '');
+  if (fs.existsSync(fullPath)) {
+    const encryptedBuffer = fs.readFileSync(fullPath);
     const decryptedBuffer = decryptBuffer(encryptedBuffer, ownerId);
     const stream = Readable.from(decryptedBuffer);
+
+    // Auto-migrate local file to GridFS in the background so it becomes portable across all PCs
+    migrateLocalFileToGridFS(fileDoc, encryptedBuffer).catch((err) =>
+      console.warn(`Background migration to GridFS failed:`, err.message)
+    );
 
     return {
       stream,
@@ -141,32 +229,72 @@ async function getFileDownloadStream(fileDoc) {
     };
   }
 
-  // Local storage
-  const fullPath = path.resolve(__dirname, '../../', fileDoc.firebasePath);
-  if (!fs.existsSync(fullPath)) {
-    throw new Error('File not found on server storage.');
-  }
-
-  const encryptedBuffer = fs.readFileSync(fullPath);
-  const decryptedBuffer = decryptBuffer(encryptedBuffer, ownerId);
-  const stream = Readable.from(decryptedBuffer);
-
-  return {
-    stream,
-    buffer: decryptedBuffer,
-    size: decryptedBuffer.length,
-    mimeType: fileDoc.mimeType,
-    filename: fileDoc.name,
-  };
+  throw new Error('File not found in cloud storage or local storage.');
 }
 
 /**
- * Delete a stored file from storage
+ * Migrate a local file buffer into MongoDB Atlas GridFS and update document.
+ */
+async function migrateLocalFileToGridFS(fileDoc, encryptedBuffer) {
+  try {
+    const File = require('../models/File');
+    const gfsBucket = getGridFSBucket();
+    const sanitizedName = fileDoc.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const uniqueKey = `${uuidv4()}_${sanitizedName}.enc`;
+
+    const uploadStream = gfsBucket.openUploadStream(uniqueKey, {
+      metadata: {
+        originalname: fileDoc.name,
+        mimetype: fileDoc.mimeType,
+        userId: fileDoc.owner ? fileDoc.owner.toString() : '',
+        encrypted: 'AES-256-GCM',
+        sizeBytes: fileDoc.sizeBytes,
+        migratedAt: new Date(),
+      },
+    });
+
+    await new Promise((resolve, reject) => {
+      Readable.from(encryptedBuffer)
+        .pipe(uploadStream)
+        .on('finish', resolve)
+        .on('error', reject);
+    });
+
+    await File.findByIdAndUpdate(fileDoc._id, {
+      storageProvider: 'gridfs',
+      gridfsId: uploadStream.id,
+      firebasePath: `gridfs://${uniqueKey}`,
+    });
+
+    console.log(`☁️ [MIGRATED] File "${fileDoc.name}" uploaded to MongoDB Atlas GridFS!`);
+  } catch (err) {
+    console.warn(`Migration error for ${fileDoc.name}:`, err.message);
+  }
+}
+
+/**
+ * Delete a stored file from storage (GridFS, Firebase, Local)
  */
 async function deleteStoredFile(fileDoc) {
-  if (fileDoc.storageProvider === 'firebase' && bucket) {
+  // 1. Delete from GridFS
+  if (fileDoc.gridfsId) {
     try {
-      const cloudFile = bucket.file(fileDoc.firebasePath);
+      const gfsBucket = getGridFSBucket();
+      const gridId =
+        fileDoc.gridfsId instanceof mongoose.Types.ObjectId
+          ? fileDoc.gridfsId
+          : new mongoose.Types.ObjectId(fileDoc.gridfsId);
+      await gfsBucket.delete(gridId);
+      console.log(`☁️ Deleted from MongoDB Atlas GridFS: ${fileDoc.gridfsId}`);
+    } catch (err) {
+      console.warn(`⚠️ Failed to delete GridFS file: ${err.message}`);
+    }
+  }
+
+  // 2. Delete from Firebase
+  if (fileDoc.storageProvider === 'firebase' && isFirebaseInitialized && firebaseBucket) {
+    try {
+      const cloudFile = firebaseBucket.file(fileDoc.firebasePath);
       const [exists] = await cloudFile.exists();
       if (exists) {
         await cloudFile.delete();
@@ -175,12 +303,11 @@ async function deleteStoredFile(fileDoc) {
     } catch (err) {
       console.warn(`⚠️ Failed to delete Firebase object: ${err.message}`);
     }
-    return;
   }
 
-  // Local storage
+  // 3. Delete from Local
   try {
-    const fullPath = path.resolve(__dirname, '../../', fileDoc.firebasePath);
+    const fullPath = path.resolve(__dirname, '../../', fileDoc.firebasePath || '');
     if (fs.existsSync(fullPath)) {
       fs.unlinkSync(fullPath);
       console.log(`💾 Deleted local file: ${fullPath}`);
@@ -194,4 +321,6 @@ module.exports = {
   uploadFile,
   getFileDownloadStream,
   deleteStoredFile,
+  migrateLocalFileToGridFS,
+  getGridFSBucket,
 };

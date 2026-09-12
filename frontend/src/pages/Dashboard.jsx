@@ -504,24 +504,42 @@ const Dashboard = () => {
     }
   };
 
-  // Download File
+  // Download File with cross-browser fallback and direct streaming
   const handleDownload = async (file) => {
     try {
+      addToast(`Preparing download for "${file.name}"...`, 'info');
       const response = await api.get(`/files/${file._id}/download`, {
         responseType: 'blob',
       });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const blob = new Blob([response.data], {
+        type: file.mimeType || 'application/octet-stream',
+      });
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', file.name);
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.URL.revokeObjectURL(url);
+      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+      addToast(`Downloaded "${file.name}"!`, 'success');
     } catch (err) {
-      console.error('Download failed:', err);
-      addToast('Failed to download file.', 'error');
+      console.warn('Blob download failed, trying direct browser stream fallback:', err);
+      try {
+        const token = localStorage.getItem('token') || '';
+        const fallbackUrl = `/api/files/${file._id}/download?token=${encodeURIComponent(token)}`;
+        const link = document.createElement('a');
+        link.href = fallbackUrl;
+        link.setAttribute('download', file.name);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        addToast(`Started direct download for "${file.name}"!`, 'success');
+      } catch (fallbackErr) {
+        console.error('All download methods failed:', fallbackErr);
+        addToast(err.response?.data?.message || 'Failed to download file.', 'error');
+      }
     }
   };
 

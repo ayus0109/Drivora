@@ -98,6 +98,7 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
       mimeType: req.file.mimetype || 'application/octet-stream',
       sizeBytes: fileSize,
       firebasePath: uploadResult.path,
+      gridfsId: uploadResult.gridfsId || null,
       storageProvider: uploadResult.storageProvider,
     });
 
@@ -228,7 +229,7 @@ router.get('/', async (req, res, next) => {
     if (trash === 'true') {
       query.isTrash = true;
     } else {
-      query.isTrash = false;
+      query.isTrash = { $ne: true };
 
       if (starred === 'true') {
         query.isStarred = true;
@@ -364,14 +365,34 @@ router.post('/benchmark-generate', async (req, res, next) => {
       const randomSuffix = Math.random().toString(36).substr(2, 4).toUpperCase();
       const fileName = `${template.base}_#${String(i).padStart(4, '0')}_${randomSuffix}.${template.ext}`;
 
+      const samplePayload = Buffer.from(
+        `--- Drivora Cloud Storage Document ---\n` +
+        `Filename: ${fileName}\n` +
+        `MIME: ${template.mime}\n` +
+        `Generated: ${new Date().toISOString()}\n` +
+        `Security: 256-bit AES-GCM Encrypted at Rest\n` +
+        `Cloud Engine: MongoDB Atlas GridFS Cluster\n` +
+        `Owner ID: ${req.userId}\n\n` +
+        `This is a verified cloud storage asset securely preserved in Drivora.`
+      );
+
+      const uploadResult = await storageService.uploadFile({
+        buffer: samplePayload,
+        originalname: fileName,
+        mimetype: template.mime,
+        size: samplePayload.length,
+        userId: req.userId,
+      });
+
       docs.push({
         name: fileName,
         owner: req.userId,
         folder: targetFolder,
         mimeType: template.mime,
-        sizeBytes: fileBytes,
-        firebasePath: `benchmark_vault/${req.userId}/${fileName}.enc`,
-        storageProvider: 'local',
+        sizeBytes: samplePayload.length,
+        firebasePath: uploadResult.path,
+        gridfsId: uploadResult.gridfsId || null,
+        storageProvider: uploadResult.storageProvider || 'gridfs',
         isTrash: false,
         isStarred: i % 15 === 0,
         createdAt: new Date(timestamp - (requestedCount - i) * 60000),

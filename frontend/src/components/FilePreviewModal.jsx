@@ -309,7 +309,9 @@ const FilePreviewModal = ({ file, isOpen, onClose, onDownload, onShare, initialT
                 <div className="flex items-center gap-1.5 mt-1 text-sm font-medium text-emerald-400">
                   <HardDrive className="h-4 w-4" />
                   <span>
-                    {file.storageProvider === 'firebase'
+                    {file.storageProvider === 'gridfs'
+                      ? 'MongoDB Atlas Cloud Vault (AES-256-GCM)'
+                      : file.storageProvider === 'firebase'
                       ? 'Google Cloud / Firebase Storage'
                       : 'Local Storage Vault (AES-256-GCM)'}
                   </span>

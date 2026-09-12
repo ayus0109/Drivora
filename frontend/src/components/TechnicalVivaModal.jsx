@@ -161,11 +161,11 @@ const TechnicalVivaModal = ({ isOpen, onClose }) => {
                   <br />
                   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼
                   <br />
-                  &nbsp;&nbsp;[MongoDB Atlas]&nbsp;&nbsp;&nbsp;[Local Vault]&nbsp;&nbsp;[Firebase Storage]
+                  &nbsp;&nbsp;[MongoDB Atlas]&nbsp;&nbsp;&nbsp;[Atlas GridFS]&nbsp;&nbsp;[Portable Vault]
                   <br />
-                  &nbsp;&nbsp;Metadata, Quotas,&nbsp;Encrypted .enc&nbsp;&nbsp;Encrypted Object
+                  &nbsp;&nbsp;Metadata, Quotas,&nbsp;Encrypted Cloud&nbsp;Cross-PC Instant
                   <br />
-                  &nbsp;&nbsp;Auth & Audit Logs&nbsp;&nbsp;Filesystem&nbsp;&nbsp;&nbsp;&nbsp;Cloud Buckets
+                  &nbsp;&nbsp;Auth & Audit Logs&nbsp;Binary Storage&nbsp;&nbsp;Stream/Download
                 </div>
               </div>
 

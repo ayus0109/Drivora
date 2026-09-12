@@ -35,10 +35,14 @@ const fileSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    gridfsId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+    },
     storageProvider: {
       type: String,
-      enum: ['firebase', 'local'],
-      default: 'firebase',
+      enum: ['gridfs', 'firebase', 'local'],
+      default: 'gridfs',
     },
     isTrash: {
       type: Boolean,
