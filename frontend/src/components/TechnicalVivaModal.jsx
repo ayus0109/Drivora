@@ -74,19 +74,22 @@ const TechnicalVivaModal = ({ isOpen, onClose }) => {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="flex flex-col w-full max-w-4xl max-h-[90vh] bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+      <div className="flex flex-col w-full max-w-4xl max-h-[90dvh] sm:max-h-[85dvh] bg-white rounded-t-[28px] sm:rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+        {/* Mobile Drag Indicator */}
+        <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
+
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50/80">
+        <div className="flex items-center justify-between px-5 sm:px-6 py-3.5 sm:py-4 border-b border-gray-200 bg-gray-50/80">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-blue-600 text-white shadow-xs">
               <HelpCircle className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-gray-900">
+              <h2 className="text-sm sm:text-base font-bold text-gray-900">
                 Frequently Asked Questions (FAQ) & System Guide
               </h2>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 hidden sm:block">
                 Quick answers about storage quotas, batch uploads, security, and cloud architecture
               </p>
             </div>
@@ -127,7 +130,7 @@ const TechnicalVivaModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-6">
           {activeSection === 'architecture' && (
             <div className="space-y-6 text-sm text-gray-700">
               {/* Architecture Diagram Box */}
@@ -180,21 +183,21 @@ const TechnicalVivaModal = ({ isOpen, onClose }) => {
 
                 <div className="p-4 rounded-xl border border-gray-200 bg-white">
                   <div className="flex items-center gap-2 font-bold text-gray-900 mb-2">
-                    <Lock className="h-4 w-4 text-emerald-600" />
-                    <span>Cryptographic Engine</span>
+                    <Lock className="h-4 w-4 text-purple-600" />
+                    <span>AES-256-GCM Vault</span>
                   </div>
                   <p className="text-xs text-gray-500 leading-relaxed">
-                    Uses Node.js native crypto module for hardware-accelerated AES-256-GCM encryption with randomized IVs to ensure zero plaintext on the host.
+                    Streams payloads through cipher blocks, prepending random 96-bit IVs and appending 16-byte authentication tags. Zero plaintext writes.
                   </p>
                 </div>
 
                 <div className="p-4 rounded-xl border border-gray-200 bg-white">
                   <div className="flex items-center gap-2 font-bold text-gray-900 mb-2">
-                    <Zap className="h-4 w-4 text-amber-600" />
-                    <span>Streaming Engine</span>
+                    <Zap className="h-4 w-4 text-amber-500" />
+                    <span>Concurrency Queue</span>
                   </div>
                   <p className="text-xs text-gray-500 leading-relaxed">
-                    Downloads and in-browser previews use Node.js Readable streams piped into decipher streams, enabling instant streaming with low memory footprint.
+                    Processes up to 500 queued uploads with adaptive concurrency (4 desktop / 2 mobile), chunked retries, and real-time state broadcasts.
                   </p>
                 </div>
               </div>
@@ -203,32 +206,29 @@ const TechnicalVivaModal = ({ isOpen, onClose }) => {
 
           {activeSection === 'faq' && (
             <div className="space-y-3">
-              <p className="text-xs text-gray-500 mb-2">
-                Click on any question below to see detailed answers:
-              </p>
-              {faqs.map((faq, idx) => (
+              {faqs.map((faq, index) => (
                 <div
-                  key={idx}
-                  className="rounded-xl border border-gray-200 bg-white overflow-hidden transition-all shadow-2xs hover:border-gray-300"
+                  key={index}
+                  className="rounded-xl border border-gray-200 bg-white overflow-hidden transition-all shadow-xs"
                 >
                   <button
-                    onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
-                    className="w-full flex items-center justify-between p-3.5 sm:p-4 text-left font-semibold text-xs sm:text-sm text-gray-800 hover:bg-gray-50/80 transition-colors gap-3"
+                    onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                    className="w-full flex items-center justify-between p-4 text-left font-bold text-gray-900 hover:bg-gray-50/80 transition-colors"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="p-1.5 rounded-lg bg-gray-50 border border-gray-100 flex-shrink-0">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-gray-50 border border-gray-100 flex-shrink-0">
                         {faq.icon}
                       </div>
-                      <span className="text-gray-900 font-bold">{faq.q}</span>
+                      <span className="text-xs sm:text-sm font-semibold">{faq.q}</span>
                     </div>
-                    {openFaq === idx ? (
-                      <ChevronUp className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    {openFaq === index ? (
+                      <ChevronUp className="h-4 w-4 text-gray-400 flex-shrink-0 ml-2" />
                     ) : (
-                      <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                      <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0 ml-2" />
                     )}
                   </button>
-                  {openFaq === idx && (
-                    <div className="p-4 pt-1 text-xs sm:text-sm text-gray-600 border-t border-gray-100 bg-gray-50/50 leading-relaxed pl-11">
+                  {openFaq === index && (
+                    <div className="px-4 pb-4 pt-1 text-xs sm:text-sm text-gray-600 border-t border-gray-100 bg-gray-50/50 leading-relaxed">
                       {faq.a}
                     </div>
                   )}
@@ -238,12 +238,12 @@ const TechnicalVivaModal = ({ isOpen, onClose }) => {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between text-xs text-gray-500">
+        {/* Footer with Safe Area */}
+        <div className="shrink-0 px-5 sm:px-6 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between text-xs text-gray-500 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <span>Drivora • Cloud Storage System</span>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
+            className="px-4 py-1.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors cursor-pointer"
           >
             Close FAQ
           </button>

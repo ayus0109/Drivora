@@ -182,9 +182,9 @@ const FilePreviewModal = ({ file, isOpen, onClose, onDownload, onShare, initialT
     name.endsWith('.log');
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-gray-950/85 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex flex-col h-[100dvh] max-h-[100dvh] bg-gray-950/85 backdrop-blur-md animate-in fade-in duration-200">
       {/* Top Header Bar */}
-      <div className="flex h-16 w-full items-center justify-between border-b border-gray-800/80 bg-gray-900/90 px-4 sm:px-6 text-white select-none flex-shrink-0">
+      <div className="flex min-h-16 w-full items-center justify-between border-b border-gray-800/80 bg-gray-900/90 px-4 sm:px-6 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 sm:pb-0 text-white select-none flex-shrink-0">
         {/* Left: Icon, Name & Type Badge */}
         <div className="flex items-center gap-3 min-w-0 flex-1 mr-4">
           <div className="flex-shrink-0">{icon}</div>
@@ -256,7 +256,7 @@ const FilePreviewModal = ({ file, isOpen, onClose, onDownload, onShare, initialT
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-hidden flex items-center justify-center p-3 sm:p-6">
+      <div className="flex-1 overflow-hidden flex items-center justify-center p-3 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {activeTab === 'details' ? (
           /* DETAILS & SECURITY INSPECTOR VIEW */
           <div className="w-full max-w-2xl bg-gray-900/95 border border-gray-800 rounded-2xl p-6 sm:p-8 text-white shadow-2xl overflow-y-auto max-h-full">

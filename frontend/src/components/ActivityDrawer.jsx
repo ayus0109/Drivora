@@ -54,25 +54,25 @@ const ActivityDrawer = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/30 backdrop-blur-xs animate-in fade-in">
-      <div className="w-full max-w-sm bg-white h-full shadow-2xl flex flex-col justify-between p-6 animate-in slide-in-from-right duration-200">
-        <div>
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs animate-in fade-in">
+      <div className="w-full max-w-sm bg-white h-[100dvh] max-h-[100dvh] shadow-2xl flex flex-col justify-between px-6 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] animate-in slide-in-from-right duration-200">
+        <div className="flex flex-col flex-1 min-h-0">
           {/* Header */}
-          <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+          <div className="flex items-center justify-between pb-4 border-b border-gray-100 shrink-0">
             <div className="flex items-center gap-2 text-gray-900 font-bold text-base">
               <History className="h-5 w-5 text-blue-600" />
               <span>Activity Log</span>
             </div>
             <button
               onClick={onClose}
-              className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
 
           {/* Body */}
-          <div className="py-4 overflow-y-auto max-h-[calc(100vh-140px)]">
+          <div className="py-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
             {isLoading ? (
               <div className="flex h-40 items-center justify-center text-gray-400 gap-2">
                 <Loader2 className="h-5 w-5 animate-spin text-blue-600" />

@@ -47,7 +47,7 @@ const UploadManagerDrawer = () => {
   return (
     <aside
       aria-label="Upload manager"
-      className="fixed bottom-2 sm:bottom-4 inset-x-2 sm:inset-x-auto sm:right-6 sm:w-96 z-50 max-w-[calc(100vw-16px)] rounded-2xl bg-white shadow-2xl border border-gray-200/90 overflow-hidden select-none transition-all duration-300 animate-in slide-in-from-bottom-4"
+      className="fixed bottom-[max(0.75rem,calc(0.5rem+env(safe-area-inset-bottom)))] sm:bottom-6 inset-x-2 sm:inset-x-auto sm:right-6 sm:w-96 z-50 max-w-[calc(100vw-16px)] rounded-2xl bg-white shadow-2xl border border-gray-200/90 overflow-hidden select-none transition-all duration-300 animate-in slide-in-from-bottom-4"
     >
       {/* Header Bar */}
       <div

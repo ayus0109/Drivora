@@ -44,19 +44,19 @@ const StorageBar = ({ usedBytes, usedStorageBytes, quotaBytes = FIFTEEN_GB, onCl
   return (
     <div
       onClick={onClick}
-      className={`group rounded-2xl bg-white p-4 border border-gray-200/80 shadow-xs select-none transition-all ${
+      className={`group rounded-2xl bg-white p-3.5 sm:p-4 border border-gray-200/90 shadow-xs select-none transition-all ${
         onClick
-          ? 'cursor-pointer hover:border-blue-300 hover:shadow-sm hover:bg-slate-50/50'
+          ? 'cursor-pointer hover:border-blue-300 hover:shadow-sm active:scale-[0.98] hover:bg-slate-50/60'
           : ''
       }`}
       title={onClick ? 'Click to view detailed storage breakdown' : undefined}
     >
       <div className="flex items-center justify-between text-xs font-bold text-gray-700 mb-2">
         <div className="flex items-center gap-1.5">
-          <Database className="h-3.5 w-3.5 text-blue-600" />
-          <span>Storage Usage</span>
+          <Database className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+          <span className="truncate">Storage Usage</span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           <span
             className={`font-bold ${
               isExceededOrCritical
@@ -74,19 +74,19 @@ const StorageBar = ({ usedBytes, usedStorageBytes, quotaBytes = FIFTEEN_GB, onCl
         </div>
       </div>
 
-      <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+      <div className="w-full bg-gray-100 rounded-full h-2 sm:h-2.5 overflow-hidden">
         <div
-          className={`h-2.5 rounded-full transition-all duration-500 ${barColor}`}
+          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
           style={{ width: `${visualBarWidth}%` }}
         ></div>
       </div>
 
-      <div className="flex items-center justify-between mt-2">
-        <p className="text-xs text-gray-500 font-semibold">
-          {formatBytes(bytes)} of {formatBytes(quota)} used
+      <div className="flex items-center justify-between mt-2 text-[11px] sm:text-xs">
+        <p className="text-gray-500 font-semibold truncate mr-2">
+          {formatBytes(bytes)} of {formatBytes(quota)}
         </p>
         {onClick && (
-          <span className="text-[10px] text-blue-600 font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+          <span className="shrink-0 inline-flex items-center gap-1 text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
             <PieChart className="h-3 w-3" /> Breakdown
           </span>
         )}

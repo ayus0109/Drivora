@@ -52,16 +52,19 @@ const SecurityPrivacyModal = ({ isOpen, onClose }) => {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
+      <div className="flex flex-col w-full max-w-2xl max-h-[90dvh] sm:max-h-[85dvh] rounded-t-[28px] sm:rounded-3xl bg-white shadow-2xl border border-gray-100 overflow-hidden animate-in zoom-in-95">
+        {/* Mobile Drag Indicator */}
+        <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mt-2.5 mb-1 sm:hidden shrink-0" />
+
         {/* Header */}
-        <div className="flex items-start justify-between pb-4 border-b border-gray-100">
+        <div className="shrink-0 flex items-start justify-between px-6 pt-3 pb-4 border-b border-gray-100 bg-white">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 shadow-sm">
-              <ShieldCheck className="h-7 w-7" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 shadow-sm shrink-0">
+              <ShieldCheck className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-gray-900">
+              <h3 className="text-base sm:text-lg font-bold text-gray-900">
                 Security & Data Privacy Architecture
               </h3>
               <p className="text-xs text-gray-500">
@@ -72,25 +75,25 @@ const SecurityPrivacyModal = ({ isOpen, onClose }) => {
 
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Pillars List */}
-        <div className="mt-6 space-y-4">
+        {/* Pillars List (Scrollable Body) */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-5 sm:px-8 py-5 space-y-3.5">
           {securityPillars.map((p, idx) => (
             <div
               key={idx}
-              className="flex items-start gap-4 p-4 rounded-2xl bg-gray-50/70 border border-gray-100 hover:bg-white hover:border-blue-200 hover:shadow-xs transition-all"
+              className="flex items-start gap-3.5 p-4 rounded-2xl bg-gray-50/70 border border-gray-100 hover:bg-white hover:border-blue-200 hover:shadow-xs transition-all"
             >
               <div className="p-2.5 rounded-xl bg-white shadow-xs flex-shrink-0">
                 {p.icon}
               </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-bold text-gray-900">{p.title}</h4>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <h4 className="text-xs sm:text-sm font-bold text-gray-900">{p.title}</h4>
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
                     {p.subtitle}
                   </span>
@@ -103,15 +106,15 @@ const SecurityPrivacyModal = ({ isOpen, onClose }) => {
           ))}
         </div>
 
-        {/* Footer */}
-        <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between">
+        {/* Footer with Safe Area */}
+        <div className="shrink-0 px-6 py-3.5 border-t border-gray-100 bg-gray-50/90 flex items-center justify-between pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <span className="text-xs text-green-600 font-medium flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
             All Security Systems Active
           </span>
           <button
             onClick={onClose}
-            className="px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition-colors"
+            className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 rounded-xl shadow-xs transition-all cursor-pointer"
           >
             Got it
           </button>

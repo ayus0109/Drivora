@@ -5,7 +5,7 @@ const Toast = ({ toasts = [], onDismiss }) => {
   if (!toasts || toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
+    <div className="fixed bottom-[max(1rem,calc(1rem+env(safe-area-inset-bottom)))] inset-x-4 sm:inset-x-auto sm:right-6 sm:max-w-sm z-50 flex flex-col gap-2.5 pointer-events-none">
       {toasts.map((toast) => {
         const isError = toast.type === 'error';
         const isInfo = toast.type === 'info';
